@@ -15,6 +15,8 @@ class u {
 }
 
 class pojo {
+	int code;
+	String msg;
 	int id = 1;
 	String name = "陈浩";
 	List<u> us = Arrays.asList (new u ( ), new u ( ));

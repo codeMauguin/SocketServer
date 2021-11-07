@@ -87,7 +87,7 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
 			if (bufferedReader.ready ( ) && (read = bufferedReader.read (s)) > -1) {
 				param += URLDecoder.decode (new String (s, 0, read));
 			}
-			Logger.info ("param:{0}",param);
+			Logger.info ("param:{0}", param);
 			/**
 			 * 处理请求控制器
 			 */
@@ -105,6 +105,8 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
 				}
 			else {
 				//报错
+				response.setCharset ("UTF-8");
+				response.getPrintSteam ( ).println ("{\"code\":\"404\",\"msg\":\"页面找不到\"}");
 			}
 			outputStream.write (String.format (NetworkLibrary.HTTP_HEADER.getContent ( ), "1.1",
 					HttpCode.HTTP_200.getCode ( ),
