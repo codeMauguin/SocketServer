@@ -16,7 +16,7 @@ public class JSON {
 	
 	public static String ObjectToString(Object target) {
 		if (Objects.isNull (target)) {
-			return null;
+			return "null";
 		}
 		StringBuilder resList = new StringBuilder ( );
 		if (Objects.isNull (target.getClass ( ).getClassLoader ( )) || Objects.isNull (target.getClass ( ).getClassLoader ( ).getName ( ))) {

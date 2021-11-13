@@ -1,8 +1,8 @@
 package web.Socket;
 
 import Logger.Logger;
+import web.http.Controller.Servlet;
 import web.http.Controller.ServletFactory;
-import web.http.Controller.WebServlet;
 import web.http.Filter.Filter;
 import web.http.Header.Impl.HttpHeaderBuild;
 import web.http.Header.Impl.HttpHeaderBuilder;
@@ -91,7 +91,7 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
 			/**
 			 * 处理请求控制器
 			 */
-			final WebServlet servlet = factory.getServlet (path);
+			final Servlet servlet = factory.getServlet (path);
 			if (servlet != null)
 				switch (method) {
 					case "GET": {
@@ -110,12 +110,12 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
 			}
 			outputStream.write (String.format (NetworkLibrary.HTTP_HEADER.getContent ( ), "1.1",
 					HttpCode.HTTP_200.getCode ( ),
-					HttpCode.HTTP_200.getMsg ( )).getBytes (response.getResponse_unicode ( )));
+					HttpCode.HTTP_200.getMsg ( )).getBytes (response.getResponseUnicode ( )));
 			Map<String, String> headers = response.getHeaders ( );
 			for (Map.Entry<String, String> entry : headers.entrySet ( )) {
 				String k = entry.getKey ( );
 				String v = entry.getValue ( );
-				outputStream.write (String.format (NetworkLibrary.HTTP_HEADER_MODEL.getContent ( ), k.trim ( ), v.trim ( )).getBytes (response.getResponse_unicode ( )));
+				outputStream.write (String.format (NetworkLibrary.HTTP_HEADER_MODEL.getContent ( ), k.trim ( ), v.trim ( )).getBytes (response.getResponseUnicode ( )));
 			}
 			/**
 			 * 输出换行

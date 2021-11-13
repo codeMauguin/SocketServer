@@ -9,7 +9,7 @@ import web.http.HttpResponse;
  * @Date: created in 18:43 2021/11/6
  * @Modified By:
  */
-public interface WebServlet {
+public interface Servlet {
 	/**
 	 * 处理Get请求
 	 *
