@@ -12,7 +12,7 @@ import java.util.Arrays;
 import java.util.List;
 
 class u {
-    int id ;
+    int id;
 
     public u(int id) {
         this.id = id;
@@ -22,9 +22,14 @@ class u {
 class pojo {
     int code = 200;
     String msg = "成功获取";
-    int id = 1;
-    String name = "陈浩";
+    Object id;
+    String name;
     List<u> us = Arrays.asList(new u(1), new u(2));
+
+    public pojo(Object id) {
+        this.id = id;
+        name = "陈浩-" + id;
+    }
 }
 
 /**
@@ -34,6 +39,7 @@ class pojo {
 public class Test {
     private final static int PORT = 80;
 
+
     @SuppressWarnings("all")
     public static void main(String[] args) throws Throwable {
         Server<Integer> server = new HttpFactory();
@@ -41,7 +47,7 @@ public class Test {
         class login implements Servlet {
             @Override
             public void doGet(HttpRequest request, HttpResponse response) {
-                response.getPrintSteam().println(JSON.ObjectToString(new pojo()));
+                response.getPrintSteam().println(JSON.ObjectToString(new pojo(request.getParam("id"))));
             }
 
             @Override
@@ -56,6 +62,9 @@ public class Test {
             Logger.info("进入过滤器");
             response.setCharset("UTF-8");
         });
+        /**
+         * 服务启动
+         */
         server.start(PORT);
     }
 }
