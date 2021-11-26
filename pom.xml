@@ -12,12 +12,18 @@
         <maven.compiler.source>16</maven.compiler.source>
         <maven.compiler.target>16</maven.compiler.target>
         <fast-json>1.2.78</fast-json>
+        <jetty-util>7.0.0.pre5</jetty-util>
     </properties>
     <dependencies>
         <dependency>
             <groupId>com.alibaba</groupId>
             <artifactId>fastjson</artifactId>
             <version>${fast-json}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.mortbay.jetty</groupId>
+            <artifactId>jetty-util</artifactId>
+            <version>${jetty-util}</version>
         </dependency>
     </dependencies>
 </project>
