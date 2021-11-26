@@ -18,8 +18,12 @@ public class HttpServletResponse implements HttpResponse {
     public HttpServletResponse(OutputStream outputStream) {
         this.outputStream = outputStream;
         printSteam = new PrintStream(outputStream);
-        headers = new HashMap<>(Map.of("Date", LocalDateTime.now().toString(), "Content-Type",
-                "application/json;charset=%s".formatted(response_unicode)));
+        headers = new HashMap<>(Map.of(
+                "Date", LocalDateTime.now().toString(), "Content-Type",
+                "application/json;charset=%s".formatted(response_unicode),
+                "Connection", "keep-alive",
+                "Keep-Alive", "timeout=3")
+        );
     }
 
     public String getOrigin() {
@@ -28,6 +32,10 @@ public class HttpServletResponse implements HttpResponse {
 
     public void setOrigin(String origin) {
         this.origin = origin;
+    }
+
+    public void setLength(int size) {
+        this.headers.put("Content-Length", String.valueOf(size));
     }
 
     public Map<String, String> getHeaders() {
