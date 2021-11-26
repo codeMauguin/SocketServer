@@ -9,6 +9,7 @@ import web.http.Libary.Container;
 import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -42,21 +43,27 @@ public abstract class WebHttpServerFactory implements Server<Integer>, Container
 
     @Override
     public void start(Integer port) throws Throwable {
-        executor = new ThreadPoolExecutor(8, 10, 60, TimeUnit.SECONDS, new SynchronousQueue<>(),
-
-                r -> new Thread(Thread.currentThread().getThreadGroup(), r, "web-bio-Server"));
+        executor = getExecutor();
         serverSocket = new ServerSocket(port);
         Logger.info("http Server start in port " + port);
         start = true;
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+        Thread hook = new Thread(() -> {
             Logger.info("Service stops on port ".concat(String.valueOf(port)));
             destroy(port);
-        }));
+        });
+        Runtime.getRuntime().addShutdownHook(hook);
+    }
+
+    private ThreadPoolExecutor getExecutor() {
+        return new ThreadPoolExecutor(8, 10, 60, TimeUnit.SECONDS, new SynchronousQueue<>(),
+
+                r -> new Thread(Thread.currentThread().getThreadGroup(), r, "web-bio-Server"));
     }
 
     @Override
     public void destroy(Integer k) {
-        executor.shutdown();
+        if (Objects.nonNull(executor))
+            executor.shutdown();
         executor = null;
         start = false;
     }
