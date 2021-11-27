@@ -15,14 +15,14 @@ public class HttpServletResponse implements HttpResponse {
     private String origin = "";
     private String response_unicode = "UTF-8";
 
-    public HttpServletResponse(OutputStream outputStream) {
+    public HttpServletResponse(OutputStream outputStream,String timeout) {
         this.outputStream = outputStream;
         printSteam = new PrintStream(outputStream);
         headers = new HashMap<>(Map.of(
                 "Date", LocalDateTime.now().toString(), "Content-Type",
                 "application/json;charset=%s".formatted(response_unicode),
                 "Connection", "keep-alive",
-                "Keep-Alive", "timeout=3")
+                "Keep-Alive", "timeout="+timeout)
         );
     }
 

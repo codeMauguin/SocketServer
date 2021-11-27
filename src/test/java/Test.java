@@ -47,6 +47,7 @@ public class Test {
         class login implements Servlet {
             @Override
             public void doGet(HttpRequest request, HttpResponse response) {
+                System.out.println("进入处理");
                 response.getPrintSteam().println(JSON.ObjectToString(new pojo(request.getParam("id"))));
             }
 

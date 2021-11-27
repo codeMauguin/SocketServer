@@ -4,6 +4,7 @@ import Logger.Logger;
 import com.alibaba.fastjson.JSON;
 import org.mortbay.util.MultiMap;
 import org.mortbay.util.UrlEncoded;
+import server.Server;
 import web.http.Controller.Servlet;
 import web.http.Controller.ServletFactory;
 import web.http.Filter.Filter;
@@ -20,10 +21,7 @@ import java.net.Socket;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.regex.Pattern;
 
 /**
@@ -36,33 +34,35 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
     @Override
     public void run() {
         try {
+            int timeout = 6000;
             InputStream inputStream = accept.getInputStream();
             OutputStream outputStream = accept.getOutputStream();
-            InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
-            BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
             accept.setKeepAlive(true);
+            Reader reader = new Reader(inputStream);
             while (accept.isConnected() && !accept.isClosed()) {
                 HttpHeaderBuild h = new HttpHeaderBuilder();
                 Logger.info(String.valueOf(accept.getPort()));
-                accept.setSoTimeout(3000);
-                String method;
-                String path;
+                accept.setSoTimeout(timeout);
+                String method = null;
+                String path = null;
                 String type = "";
                 String origin = "";
                 String charset = "UTF-8";
-                String version;
+                String version = null;
                 int length = 0;
                 Map<String, Object> params = new HashMap<>();
                 /*
                   读取信息
                  */
-                String http = bufferedReader.readLine();
+                reader.start(-1);
+                String http = reader.readLine();
                 Logger.info(String.format("http:%s", http));
-                if (Objects.isNull(http)) {
+                if (http.trim() == "") {
                     /*
                        如果读取为空此次请求错误
                      */
-                    break;
+                    Logger.info("此次请求错误");
+//                break;
                 } else {
                     String[] info = http.split(" ");
                     method = info[0];
@@ -85,13 +85,10 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
                 /*
                   	读取请求头
                  */
-                while (bufferedReader.ready()) {
-                    String line = bufferedReader.readLine();
-                    if ("".equals(line)) {
-                        break;
-                    }
+                String line;
+                while ((line = reader.readLine().trim()) != "") {
                     int split = line.indexOf(":");
-                    String key = line.substring(0, split);
+                    String key = line.substring(0, split).trim();
                     String value = line.substring(split + 1).trim();
                     switch (key) {
                         case "Content-Type" -> {
@@ -124,14 +121,14 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
                     h.setHeader(key, value);
                 }
                 if (Objects.equals(method.trim(), "OPTIONS")) {
-                    optionHandle(outputStream, version, origin);
-                    continue;
+                    optionHandle(outputStream, version, origin, String.valueOf(timeout / 1000));
+                    return;
                 }
                 HttpRequestPojo requestPojo = new HttpRequestPojo(path, method);
                 requestPojo.setParams(params);
                 HttpServletRequest request = new HttpServletRequest(inputStream, h, requestPojo);
                 ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-                HttpServletResponse response = new HttpServletResponse(byteArrayOutputStream);
+                HttpServletResponse response = new HttpServletResponse(byteArrayOutputStream, String.valueOf(timeout / 1000));
                 if (!origin.equals(""))
                     response.setOrigin(origin);
                 /*
@@ -142,10 +139,8 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
                 }
                 int read;
                 if (length > 0) {
-                    String body;
-                    char[] s = new char[length];
-                    read = bufferedReader.read(s);
-                    body = URLDecoder.decode(new String(s, 0, read), charset);
+                    reader.destroy(length);
+                    String body = URLDecoder.decode(new String(reader.body, 0, reader.body.length), charset);
                     requestPojo.setBody(body);
                     switch (type) {
                         case "JSON" -> {
@@ -160,6 +155,7 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
                             Logger.info("body:{0}", map.get("id"));
                         }
                         default -> {
+                            //将数据读取为byte数组
                         }
                     }
                 }
@@ -192,6 +188,7 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
                 if (byteArrayOutputStream.size() > 0)
                     byteArrayOutputStream.writeTo(outputStream);
                 outputStream.flush();
+                reader.reload();
             }
         } catch (IOException e) {
             try {
@@ -203,7 +200,7 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
 
     }
 
-    private void optionHandle(OutputStream outputStream, String version, String origin) throws IOException {
+    private void optionHandle(OutputStream outputStream, String version, String origin, String timeout) throws IOException {
         outputStream.write("HTTP/%s 200\r\n".formatted(version).getBytes(StandardCharsets.UTF_8));
         outputStream.write("Vary: Origin\r\n".getBytes(StandardCharsets.UTF_8));
         outputStream.write("Vary: Access-Control-Request-Method\r\n".getBytes(StandardCharsets.UTF_8));
@@ -216,19 +213,119 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
         headers.put("Allow", "GET, HEAD, POST, PUT, DELETE, OPTIONS, PATCH");
         headers.put("Content-Length", "0");
         headers.put("Date", LocalDateTime.now().toString());
-        headers.put("Keep-Alive", "timeout=3");
+        headers.put("Keep-Alive", "timeout=" + timeout);
         headers.put("Connection", "keep-alive");
         printHead(headers, "UTF-8", outputStream);
         outputStream.write(NetworkLibrary.CRLF.getContent().getBytes());
     }
 
-    private void printHead(Map<String, String> headers, String unicode, OutputStream outputStream) {
+    private void printHead(Map<String, String> headers, String unicode, OutputStream outputStream) throws IOException {
         for (Map.Entry<String, String> entry : headers.entrySet()) {
             String k = entry.getKey();
             String v = entry.getValue();
-            try {
-                outputStream.write(String.format(NetworkLibrary.HTTP_HEADER_MODEL.getContent(), k.trim(), v.trim()).getBytes(unicode));
-            } catch (IOException ignored) {
+            outputStream.write(String.format(NetworkLibrary.HTTP_HEADER_MODEL.getContent(), k.trim(), v.trim()).getBytes(unicode));
+        }
+    }
+
+    private static class Reader implements Server<Integer> {
+        private final InputStream inputStream;
+        private int index = 0;
+        private int readIndex = 0;
+        private int size = 4096;
+        private byte[] buffer = new byte[size];
+        private byte[] body;
+        private int state = 0;
+
+        public Reader(InputStream inputStream) {
+            this.inputStream = inputStream;
+        }
+
+
+        @Override
+        public void start(Integer k) throws IOException {
+            //这个会阻塞
+//            int body;
+//            while (index < size) {
+//                body = inputStream.read();
+//                if (body == -1) {
+//                    break;
+//                }
+//                buffer[index++] = (byte) body;
+//                if (index >= size) {
+//                    expansion();
+//                }
+//            }
+            while (true) {
+                int read = inputStream.read(buffer, index, size - index);
+                if (read != -1) {
+                    index += read;
+                } else {
+                    break;
+                }
+                if (index >= size) {
+                    expansion();
+                } else {
+                    break;
+                }
+            }
+        }
+
+        private char byteToChar(byte b) {
+            return (char) (b & 0xff);
+        }
+
+        public String readLine() {
+            StringBuilder builder = new StringBuilder();
+            while (readIndex < index) {
+                byte datum = buffer[readIndex++];
+                char str = byteToChar(datum);
+                if (str == '\r') {
+                    if (state == 1) {
+                        break;
+                    }
+                    state++;
+                    continue;
+                }
+                if (str == '\n') {
+                    if (state == 1) {
+                        state = 0;
+                        break;
+                    } else {
+                        state++;
+                        continue;
+                    }
+                }
+                builder.append(str);
+            }
+            return builder.toString();
+        }
+
+        /**
+         * 扩容缓冲区
+         */
+        private void expansion() {
+            this.size *= 2;
+            this.buffer = Arrays.copyOf(this.buffer, this.size);
+        }
+
+        private void reload() throws IOException {
+            index = 0;
+            readIndex = 0;
+            size = 4096;
+            buffer = new byte[size];
+            body = new byte[0];
+            state = 0;
+
+        }
+
+        @Override
+        public void destroy(Integer k) throws IOException {
+            if (index > readIndex) {
+                body = new byte[size];
+                System.arraycopy(buffer, readIndex, body, 0, index - readIndex);
+            } else {
+                body = new byte[size];
+                inputStream.read(body, 0, size);
             }
         }
     }
