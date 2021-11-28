@@ -1,6 +1,5 @@
 package web.http.Libary;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -11,19 +10,14 @@ import java.util.Objects;
  * @Modified By:
  */
 public final class HttpRequestPojo {
-    private final String path;
-    private final String method;
-    private final Map<String, Object> params;
-
+    private final HttpInfo info;
     private String body;
 
     /**
      *
      */
-    public HttpRequestPojo(String path, String method) {
-        this.path = path;
-        this.method = method;
-        params = new HashMap<>();
+    public HttpRequestPojo(HttpInfo info) {
+        this.info = info;
     }
 
     public String getBody() {
@@ -35,19 +29,19 @@ public final class HttpRequestPojo {
     }
 
     public Map<String, Object> getParams() {
-        return params;
+        return this.info.params();
     }
 
     public void setParams(Map<String, Object> params) {
-        this.params.putAll(params);
+        this.info.params().putAll(params);
     }
 
     public String path() {
-        return path;
+        return info.path();
     }
 
     public String method() {
-        return method;
+        return info.method();
     }
 
     @Override
@@ -55,20 +49,20 @@ public final class HttpRequestPojo {
         if (obj == this) return true;
         if (obj == null || obj.getClass() != this.getClass()) return false;
         var that = (HttpRequestPojo) obj;
-        return Objects.equals(this.path, that.path) &&
-                Objects.equals(this.method, that.method);
+        return Objects.equals(this.info.path(), that.info.path()) &&
+                Objects.equals(this.info.method(), that.info.method());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(path, method);
+        return Objects.hash(info.path(), info.method());
     }
 
     @Override
     public String toString() {
         return "HttpRequestPojo[" +
-                "path=" + path + ", " +
-                "method=" + method + ']';
+                "path=" + info.path() + ", " +
+                "method=" + info.method() + ']';
     }
 
 }

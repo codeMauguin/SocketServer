@@ -12,16 +12,20 @@ import web.http.Header.Impl.HttpHeaderBuild;
 import web.http.Header.Impl.HttpHeaderBuilder;
 import web.http.Imlp.HttpServletRequest;
 import web.http.Imlp.HttpServletResponse;
-import web.http.Libary.HttpCode;
-import web.http.Libary.HttpRequestPojo;
-import web.http.Libary.NetworkLibrary;
+import web.http.Libary.*;
 
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.Socket;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -43,14 +47,8 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
                 HttpHeaderBuild h = new HttpHeaderBuilder();
                 Logger.info(String.valueOf(accept.getPort()));
                 accept.setSoTimeout(timeout);
-                String method = null;
-                String path = null;
-                String type = "";
-                String origin = "";
-                String charset = "UTF-8";
-                String version = null;
-                int length = 0;
-                Map<String, Object> params = new HashMap<>();
+                HttpInfo httpInfo;
+                HttpHeaderInfo headerInfo = new HttpHeaderInfo();
                 /*
                   读取信息
                  */
@@ -62,87 +60,33 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
                        如果读取为空此次请求错误
                      */
                     Logger.info("此次请求错误");
-//                break;
+                    continue;
                 } else {
-                    String[] info = http.split(" ");
-                    method = info[0];
-                    path = info[1];
-                    version = info[2].substring(info[2].indexOf("/") + 1);
-                    final int index = path.indexOf("?");
-                    if (index > -1) {
-                        String param = path.substring(index + 1);
-                        path = path.substring(0,
-                                index);
-                        MultiMap<String> map = new MultiMap<>();
-                        UrlEncoded.decodeTo(URLDecoder.decode(param, StandardCharsets.UTF_8), map, "UTF-8");
-                        params = map;
-                        Logger.info(String.format("URL-Param:%s", params));
-
-                    }
+                    httpInfo = HttpInfo.getInstance(http);
                 }
-                Logger.info(String.format("method:%s", method));
-                Logger.info(String.format("path:%s", path));
+                Logger.info(String.format("method:%s", httpInfo.method()));
+                Logger.info(String.format("path:%s", httpInfo.path()));
                 /*
                   	读取请求头
                  */
-                String line;
-                while ((line = reader.readLine().trim()) != "") {
-                    int split = line.indexOf(":");
-                    String key = line.substring(0, split).trim();
-                    String value = line.substring(split + 1).trim();
-                    switch (key) {
-                        case "Content-Type" -> {
-                            Logger.info("Content-Type:{0}", value);
-                            int start = value.indexOf("=") + 1;
-                            int end;
-                            if (start > 0) {
-                                if (value.lastIndexOf(";") > start)
-                                    end = value.length() - 1;
-                                else
-                                    end = value.length();
-                                charset = value.substring(start, end);
-                                Logger.info("charset:{0}", charset);
-                            }
-                            if (JSON_MATCH.matcher(value).matches()) {
-                                type = "JSON";
-                            } else if (FORM_MATCH.matcher(value).matches()) {
-                                type = "FORM";
-                            }
-                        }
-                        case "Content-Length" -> {
-                            Logger.info("Content-Length:{0}", value);
-                            length = Integer.parseInt(value);
-                        }
-                        case "Origin" -> {
-                            origin = value;
-                            System.out.println("value = " + value);
-                        }
-                    }
-                    h.setHeader(key, value);
-                }
-                if (Objects.equals(method.trim(), "OPTIONS")) {
-                    optionHandle(outputStream, version, origin, String.valueOf(timeout / 1000));
-                    return;
-                }
-                HttpRequestPojo requestPojo = new HttpRequestPojo(path, method);
-                requestPojo.setParams(params);
+                ReadRequestHeader(reader, headerInfo, h);
+                HttpRequestPojo requestPojo = new HttpRequestPojo(httpInfo);
                 HttpServletRequest request = new HttpServletRequest(inputStream, h, requestPojo);
                 ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
                 HttpServletResponse response = new HttpServletResponse(byteArrayOutputStream, String.valueOf(timeout / 1000));
-                if (!origin.equals(""))
-                    response.setOrigin(origin);
+                if (!headerInfo.getOrigin().equals(""))
+                    response.setOrigin(headerInfo.getOrigin());
                 /*
                  * 处理过滤
                  */
                 for (Filter filter : filters) {
                     filter.doFilter(request, response);
                 }
-                int read;
-                if (length > 0) {
-                    reader.destroy(length);
-                    String body = URLDecoder.decode(new String(reader.body, 0, reader.body.length), charset);
+                if (headerInfo.getLength() > 0) {
+                    reader.destroy(headerInfo.getLength());
+                    String body = URLDecoder.decode(new String(reader.body, 0, reader.body.length), headerInfo.getCharset());
                     requestPojo.setBody(body);
-                    switch (type) {
+                    switch (headerInfo.getType()) {
                         case "JSON" -> {
                             Map<String, Object> map = JSON.parseObject(body);
                             requestPojo.setParams(map);
@@ -150,7 +94,7 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
                         }
                         case "FORM" -> {
                             MultiMap<String> map = new MultiMap<>();
-                            UrlEncoded.decodeTo(body, map, charset);
+                            UrlEncoded.decodeTo(body, map, headerInfo.getCharset());
                             requestPojo.setParams(map);
                             Logger.info("body:{0}", map.get("id"));
                         }
@@ -162,18 +106,21 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
                 /*
                  * 处理请求控制器
                  */
-                final Servlet servlet = factory.getServlet(path);
-                if (!(servlet == null || method.trim().equals("OPTIONS")))
-                    switch (method) {
+                final Servlet servlet = factory.getServlet(httpInfo.path());
+                try {
+                    switch (httpInfo.method()) {
                         case "GET" -> servlet.doGet(request, response);
                         case "POST" -> servlet.doPost(request, response);
+                        case "OPTIONS" -> {
+                            optionHandle(outputStream, httpInfo.version(), headerInfo.getOrigin(), String.valueOf(timeout / 1000));
+                            return;
+                        }
                     }
-                else {
-                    //报错
+                } catch (NullPointerException ignore) {
                     response.setCharset("UTF-8");
                     response.getPrintSteam().println("{\"code\":\"404\",\"msg\":\"页面找不到\"}");
                 }
-                outputStream.write(String.format(NetworkLibrary.HTTP_HEADER.getContent(), version,
+                outputStream.write(String.format(NetworkLibrary.HTTP_HEADER.getContent(), httpInfo.version(),
                         HttpCode.HTTP_200.getCode(),
                         HttpCode.HTTP_200.getMsg()).getBytes(response.getResponseUnicode()));
                 outputStream.write("Access-control-allow-credentials:true\r\nAccess-Control-Allow-Origin:%s%s".formatted(response.getOrigin(), "\r\n").getBytes(response
@@ -197,6 +144,50 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
             }
             Logger.info(accept.getPort() + "已经断开链接");
         }
+
+    }
+
+    private void ReadRequestHeader(Reader reader, HttpHeaderInfo headerInfo, HttpHeaderBuild h) {
+        String line;
+        while ((line = reader.readLine().trim()) != "") {
+            int split = line.indexOf(":");
+            String key = line.substring(0, split).trim();
+            String value = line.substring(split + 1).trim();
+            switch (key) {
+                case "Content-Type" -> {
+                    Logger.info("Content-Type:{0}", value);
+                    int start = value.indexOf("=") + 1;
+                    int end;
+                    if (start > 0) {
+                        if (value.lastIndexOf(";") > start)
+                            end = value.length() - 1;
+                        else
+                            end = value.length();
+                        headerInfo.setCharset(value.substring(start, end));
+                        Logger.info("charset:{0}", headerInfo.getCharset());
+                    }
+                    if (JSON_MATCH.matcher(value).matches()) {
+                        headerInfo.setType(
+                                "JSON"
+                        );
+                    } else if (FORM_MATCH.matcher(value).matches()) {
+                        headerInfo.setType(
+                                "FORM"
+                        );
+                    }
+                }
+                case "Content-Length" -> {
+                    Logger.info("Content-Length:{0}", value);
+                    headerInfo.setLength(Integer.parseInt(value));
+                }
+                case "Origin" -> {
+                    headerInfo.setOrigin(value);
+                    Logger.info("origin:{0}", value);
+                }
+            }
+            h.setHeader(key, value);
+        }
+
 
     }
 
@@ -234,7 +225,6 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
         private int size = 4096;
         private byte[] buffer = new byte[size];
         private byte[] body;
-        private int state = 0;
 
         public Reader(InputStream inputStream) {
             this.inputStream = inputStream;
@@ -276,26 +266,20 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
 
         public String readLine() {
             StringBuilder builder = new StringBuilder();
+            int state = 0;
             while (readIndex < index) {
                 byte datum = buffer[readIndex++];
                 char str = byteToChar(datum);
-                if (str == '\r') {
-                    if (state == 1) {
-                        break;
-                    }
+                if ((state == 0 && str == '\r') || (state == 1 && str == '\n')) {
                     state++;
-                    continue;
-                }
-                if (str == '\n') {
-                    if (state == 1) {
-                        state = 0;
+                } else {
+                    if (state > 0)
                         break;
-                    } else {
-                        state++;
-                        continue;
-                    }
+                    builder.append(str);
                 }
-                builder.append(str);
+                if (state == 2) {
+                    break;
+                }
             }
             return builder.toString();
         }
@@ -314,8 +298,6 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
             size = 4096;
             buffer = new byte[size];
             body = new byte[0];
-            state = 0;
-
         }
 
         @Override

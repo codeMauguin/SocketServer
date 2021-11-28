@@ -1,6 +1,5 @@
 import JSON.JSON;
 import Logger.Logger;
-import server.Server;
 import web.Socket.HttpFactory;
 import web.Socket.WebHttpServerFactory;
 import web.annotation.WebServlet;
@@ -42,7 +41,7 @@ public class Test {
 
     @SuppressWarnings("all")
     public static void main(String[] args) throws Throwable {
-        Server<Integer> server = new HttpFactory();
+        WebHttpServerFactory server = new HttpFactory();
         @WebServlet("/api/user/login")
         class login implements Servlet {
             @Override
@@ -57,9 +56,8 @@ public class Test {
             }
         }
         final Servlet webServlet = new login();
-        WebHttpServerFactory server1 = (WebHttpServerFactory) server;
-        server1.getServletFactory().addContainer(webServlet);
-        server1.addContainer((request, response) -> {
+        server.getServletFactory().addContainer(webServlet);
+        server.addContainer((request, response) -> {
             Logger.info("进入过滤器");
             response.setCharset("UTF-8");
         });
