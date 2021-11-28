@@ -55,7 +55,7 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
                 reader.start(-1);
                 String http = reader.readLine();
                 Logger.info(String.format("http:%s", http));
-                if (http.trim() == "") {
+                if ("".equals(http.trim())) {
                     /*
                        如果读取为空此次请求错误
                      */
@@ -149,7 +149,7 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
 
     private void ReadRequestHeader(Reader reader, HttpHeaderInfo headerInfo, HttpHeaderBuild h) {
         String line;
-        while ((line = reader.readLine().trim()) != "") {
+        while (!(line = reader.readLine().trim()).equals("")) {
             int split = line.indexOf(":");
             String key = line.substring(0, split).trim();
             String value = line.substring(split + 1).trim();
