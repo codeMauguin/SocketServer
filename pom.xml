@@ -13,6 +13,8 @@
         <maven.compiler.target>16</maven.compiler.target>
         <fast-json>1.2.78</fast-json>
         <jetty-util>7.0.0.pre5</jetty-util>
+        <reflections>0.10.2</reflections>
+        <maven-compiler-plugin>3.8.1</maven-compiler-plugin>
     </properties>
     <dependencies>
         <dependency>
@@ -26,16 +28,33 @@
             <version>${jetty-util}</version>
         </dependency>
         <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-            <version>RELEASE</version>
-            <scope>compile</scope>
+            <groupId>org.reflections</groupId>
+            <artifactId>reflections</artifactId>
+            <version>${reflections}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-            <version>RELEASE</version>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>1.7.25</version>
             <scope>compile</scope>
         </dependency>
     </dependencies>
+   <build>
+       <plugins>
+           <plugin>
+               <groupId>org.apache.maven.plugins</groupId>
+               <artifactId>maven-compiler-plugin</artifactId>
+               <version>${maven-compiler-plugin}</version>
+               <configuration>
+                   <parameters>true</parameters>
+               </configuration>
+           </plugin>
+       </plugins>
+   </build>
 </project>

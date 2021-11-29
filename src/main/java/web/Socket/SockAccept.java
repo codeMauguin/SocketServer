@@ -5,33 +5,36 @@ import com.alibaba.fastjson.JSON;
 import org.mortbay.util.MultiMap;
 import org.mortbay.util.UrlEncoded;
 import server.Server;
-import web.http.Controller.Servlet;
-import web.http.Controller.ServletFactory;
 import web.http.Filter.Filter;
 import web.http.Header.Impl.HttpHeaderBuild;
 import web.http.Header.Impl.HttpHeaderBuilder;
+import web.http.HttpRequest;
+import web.http.HttpResponse;
 import web.http.Imlp.HttpServletRequest;
 import web.http.Imlp.HttpServletResponse;
 import web.http.Libary.*;
+import web.server.WebServerContext;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Parameter;
 import java.net.Socket;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
  * @author 陈浩
  */
-public record SockAccept(Socket accept, List<Filter> filters, ServletFactory factory) implements Runnable {
+public record SockAccept(Socket accept, WebServerContext context) implements Runnable {
     private final static Pattern JSON_MATCH = Pattern.compile(".*json.*", Pattern.CASE_INSENSITIVE);
     private final static Pattern FORM_MATCH = Pattern.compile(".*x-www-form-urlencoded.*", Pattern.CASE_INSENSITIVE);
 
@@ -79,15 +82,16 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
                 /*
                  * 处理过滤
                  */
-                for (Filter filter : filters) {
+                for (Filter filter : context.getFilter(httpInfo.path())) {
                     filter.doFilter(request, response);
                 }
+
                 if (headerInfo.getLength() > 0) {
                     reader.destroy(headerInfo.getLength());
                     String body = URLDecoder.decode(new String(reader.body, 0, reader.body.length), headerInfo.getCharset());
                     requestPojo.setBody(body);
                     switch (headerInfo.getType()) {
-                        case "JSON" -> {
+                        case "MyJSON" -> {
                             Map<String, Object> map = JSON.parseObject(body);
                             requestPojo.setParams(map);
                             Logger.info("body:{0}", body);
@@ -103,22 +107,61 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
                         }
                     }
                 }
+                if (httpInfo.method().equals("OPTIONS")) {
+                    optionHandle(outputStream, httpInfo.version(), headerInfo.getOrigin(), String.valueOf(timeout / 1000));
+                    return;
+                }
                 /*
                  * 处理请求控制器
                  */
-                final Servlet servlet = factory.getServlet(httpInfo.path());
-                try {
-                    switch (httpInfo.method()) {
-                        case "GET" -> servlet.doGet(request, response);
-                        case "POST" -> servlet.doPost(request, response);
-                        case "OPTIONS" -> {
-                            optionHandle(outputStream, httpInfo.version(), headerInfo.getOrigin(), String.valueOf(timeout / 1000));
-                            return;
+
+                ControllerRecord controller = context.getController(httpInfo.path());
+                if (Objects.isNull(controller)) {
+                    error(response);
+                } else if (controller.isServlet()) {
+                    try {
+                        switch (httpInfo.method()) {
+                            case "GET" -> controller.getServlet().doGet(request, response);
+                            case "POST" -> controller.getServlet().doPost(request, response);
+                        }
+                    } catch (NullPointerException ignore) {
+                        error(response);
+                    }
+                } else {
+                    ControllerMethod method = controller.getMethod(httpInfo.path());
+                    Parameter[] parameters = method.getParameters();
+                    Object[] params = new Object[parameters.length];
+                    String[] paramNames = method.getParamNames();
+                    for (int i = 0, paramNamesLength = paramNames.length; i < paramNamesLength; i++) {
+                        String paramName = paramNames[i];
+                        Parameter parameter = parameters[i];
+                        Class<?> type = parameter.getType();
+                        if (type == HttpRequest.class || type == HttpServletRequest.class) {
+                            params[i] = request;
+                        } else if (type == HttpResponse.class || type == HttpServletResponse.class) {
+                            params[i] = response;
+                        } else if (String.class.equals(type) || type.isPrimitive() || char.class.equals(type) || int.class.equals(type) || boolean.class.equals(type) || long.class.equals(type) || float.class.equals(type) || byte.class.equals(type)) {
+                            Object param = request.getParam(paramName);
+                            if (type == int.class) {
+                                params[i] = Integer.parseInt((String) param);
+                            } else if (type == boolean.class) {
+                                params[i] = Boolean.getBoolean((String) param);
+                            } else
+                                params[i] = type.cast(param);
+                        } else {
+                            params[i] = request.getParam(type);
                         }
                     }
-                } catch (NullPointerException ignore) {
-                    response.setCharset("UTF-8");
-                    response.getPrintSteam().println("{\"code\":\"404\",\"msg\":\"页面找不到\"}");
+                    method.getMethod().setAccessible(true);
+                    Object invoke = method.getMethod().invoke(controller.getInstance(), params);
+                    Class<?> returnType = method.getMethod().getReturnType();
+                    if (returnType.equals(Void.class)) {
+                        //TODO 跳过没有返回值
+                    } else if (String.class.equals(returnType) || returnType.isPrimitive() || char.class.equals(returnType) || int.class.equals(returnType) || boolean.class.equals(returnType) || long.class.equals(returnType) || float.class.equals(returnType) || byte.class.equals(returnType)) {
+                        byteArrayOutputStream.write(invoke.toString().getBytes(response.getResponseUnicode()));
+                    } else {
+                        byteArrayOutputStream.write(MyJSON.JSON.ObjectToString(invoke).getBytes(response.getResponseUnicode()));
+                    }
                 }
                 outputStream.write(String.format(NetworkLibrary.HTTP_HEADER.getContent(), httpInfo.version(),
                         HttpCode.HTTP_200.getCode(),
@@ -143,8 +186,15 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
             } catch (IOException ignored) {
             }
             Logger.info(accept.getPort() + "已经断开链接");
+        } catch (InvocationTargetException | IllegalAccessException e) {
+            e.printStackTrace();
         }
 
+    }
+
+    private void error(HttpServletResponse response) {
+        response.setCharset("UTF-8");
+        response.getPrintSteam().println("{\"code\":\"404\",\"msg\":\"页面找不到\"}");
     }
 
     private void ReadRequestHeader(Reader reader, HttpHeaderInfo headerInfo, HttpHeaderBuild h) {
@@ -168,7 +218,7 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
                     }
                     if (JSON_MATCH.matcher(value).matches()) {
                         headerInfo.setType(
-                                "JSON"
+                                "MyJSON"
                         );
                     } else if (FORM_MATCH.matcher(value).matches()) {
                         headerInfo.setType(
@@ -234,7 +284,6 @@ public record SockAccept(Socket accept, List<Filter> filters, ServletFactory fac
         @Override
         public void start(Integer k) throws IOException {
             //这个会阻塞
-//            int body;
 //            while (index < size) {
 //                body = inputStream.read();
 //                if (body == -1) {

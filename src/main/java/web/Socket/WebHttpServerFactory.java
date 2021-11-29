@@ -2,54 +2,39 @@ package web.Socket;
 
 import Logger.Logger;
 import server.Server;
-import web.http.Controller.ServletFactory;
-import web.http.Filter.Filter;
-import web.http.Libary.Container;
+import web.server.WebServerContext;
 
+import java.net.BindException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 
-public abstract class WebHttpServerFactory implements Server<Integer>, Container<Filter, Integer> {
+public abstract class WebHttpServerFactory implements Server<WebServerContext> {
     protected ThreadPoolExecutor executor;
+
     protected ServerSocket serverSocket;
-    protected List<Filter> filters;
     protected boolean start;
-    protected ServletFactory servletFactory;
 
-    public WebHttpServerFactory() {
-        filters = new ArrayList<>();
-        servletFactory = new ServletFactory();
-    }
 
     @Override
-    public void addContainer(final Filter filter) {
-        filters.add(filter);
-    }
-
-    @Override
-    public void addContainer(Integer index, Filter filter) {
-        filters.add(index, filter);
-    }
-
-    public ServletFactory getServletFactory() {
-        return this.servletFactory;
-    }
-
-    @Override
-    public void start(Integer port) throws Throwable {
+    public void start(WebServerContext context) throws Throwable {
         executor = getExecutor();
-        serverSocket = new ServerSocket(port);
-        Logger.info("http Server start in port " + port);
+        serverSocket = new ServerSocket();
+        try {
+            serverSocket.bind(new InetSocketAddress(context.getIp(), context.getPort()));
+        } catch (BindException e) {
+            serverSocket.bind(new InetSocketAddress(InetAddress.getByName("0.0.0.0"), context.getPort()));
+        }
+        Logger.info("http Server start in port " + context.getPort());
         start = true;
         Thread hook = new Thread(() -> {
-            Logger.info("Service stops on port ".concat(String.valueOf(port)));
-            destroy(port);
+            Logger.info("Service stops on port ".concat(String.valueOf(context.getPort())));
+            destroy(context);
         });
         Runtime.getRuntime().addShutdownHook(hook);
     }
@@ -61,7 +46,7 @@ public abstract class WebHttpServerFactory implements Server<Integer>, Container
     }
 
     @Override
-    public void destroy(Integer k) {
+    public void destroy(WebServerContext context) {
         if (Objects.nonNull(executor))
             executor.shutdown();
         executor = null;

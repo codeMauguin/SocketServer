@@ -11,7 +11,7 @@ import java.util.Objects;
  */
 public final class HttpRequestPojo {
     private final HttpInfo info;
-    private String body;
+    private String body = null;
 
     /**
      *
@@ -20,8 +20,12 @@ public final class HttpRequestPojo {
         this.info = info;
     }
 
+    public HttpInfo getInfo() {
+        return info;
+    }
+
     public String getBody() {
-        return body;
+        return body ;
     }
 
     public void setBody(String body) {

@@ -1,24 +1,26 @@
 package web.Socket;
 
+import web.server.WebServerContext;
+
 import java.net.Socket;
 
 public class HttpFactory extends WebHttpServerFactory {
 
     @Override
-    public void start(Integer k) throws Throwable {
-        super.start (k);
+    public void start(WebServerContext context) throws Throwable {
+        super.start(context);
         /*
          *
          */
         while (start) {
-            Socket accept = this.serverSocket.accept ( );
-            executor.execute (new SockAccept (accept, filters, servletFactory));
+            Socket accept = this.serverSocket.accept();
+            executor.execute(new SockAccept(accept,  context));
         }
     }
 
     @Override
-    public void destroy(Integer k) {
-        super.destroy (k);
+    public void destroy(WebServerContext context) {
+        super.destroy(context);
         /*
          *
          */

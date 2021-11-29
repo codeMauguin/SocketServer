@@ -15,10 +15,11 @@ public record HttpInfo(String method, String path, String version, Map<String, O
         String route = info[1];
         String version = info[2].substring(info[2].indexOf("/") + 1);
         String path;
+        String param;
         Map<String, Object> params;
         final int index = route.indexOf("?");
         if (index > -1) {
-            String param = route.substring(index + 1);
+            param = route.substring(index + 1);
             path = route.substring(0,
                     index);
             MultiMap<String> map = new MultiMap<>();
