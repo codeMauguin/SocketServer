@@ -1,6 +1,7 @@
 package web.http.Imlp;
 
 import web.http.HttpResponse;
+import web.http.Libary.HttpCode;
 
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -15,15 +16,25 @@ public class HttpServletResponse implements HttpResponse {
     private String origin = "";
     private String response_unicode = "UTF-8";
 
-    public HttpServletResponse(OutputStream outputStream,String timeout) {
+    private HttpCode code = HttpCode.HTTP_200;
+
+    public HttpServletResponse(OutputStream outputStream, String timeout) {
         this.outputStream = outputStream;
         printSteam = new PrintStream(outputStream);
         headers = new HashMap<>(Map.of(
                 "Date", LocalDateTime.now().toString(), "Content-Type",
                 "application/json;charset=%s".formatted(response_unicode),
                 "Connection", "keep-alive",
-                "Keep-Alive", "timeout="+timeout)
+                "Keep-Alive", "timeout=" + timeout)
         );
+    }
+
+    public HttpCode getCode() {
+        return code;
+    }
+
+    public void setCode(HttpCode code) {
+        this.code = code;
     }
 
     public String getOrigin() {

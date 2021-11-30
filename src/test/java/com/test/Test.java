@@ -32,11 +32,9 @@ class pojo {
  * @Date: 21/06/02 0:18
  */
 public class Test {
-    private final static int PORT = 80;
 
-    @SuppressWarnings("all")
     public static void main(String[] args) throws Throwable {
         WebServer webServer = new WebWorkServer();
-        webServer.run(new String[]{"127.0.0.1:80", "com"});
+        webServer.run(args);
     }
 }

@@ -4,6 +4,7 @@ import Logger.Logger;
 import server.Server;
 import web.server.WebServerContext;
 
+import java.io.IOException;
 import java.net.BindException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -33,23 +34,25 @@ public abstract class WebHttpServerFactory implements Server<WebServerContext> {
         Logger.info("http Server start in port " + context.getPort());
         start = true;
         Thread hook = new Thread(() -> {
-            Logger.info("Service stops on port ".concat(String.valueOf(context.getPort())));
-            destroy(context);
+            try {
+                destroy(context);
+            } catch (IOException e) {
+            }
         });
         Runtime.getRuntime().addShutdownHook(hook);
     }
 
     private ThreadPoolExecutor getExecutor() {
-        return new ThreadPoolExecutor(8, 10, 60, TimeUnit.SECONDS, new SynchronousQueue<>(),
+        return new ThreadPoolExecutor(8, Integer.MAX_VALUE, 60, TimeUnit.SECONDS, new SynchronousQueue<>(),
 
                 r -> new Thread(Thread.currentThread().getThreadGroup(), r, "web-bio-Server"));
     }
 
     @Override
-    public void destroy(WebServerContext context) {
+    public void destroy(WebServerContext context) throws IOException {
+        start = false;
         if (Objects.nonNull(executor))
             executor.shutdown();
         executor = null;
-        start = false;
     }
 }

@@ -9,15 +9,14 @@ import web.http.HttpResponse;
 /**
  * @author 陈浩
  * @slogan: Talk is cheap. Show me the code.
- * @Date: created in 5:36 下午 2021/11/29
+ * @Date: created in 9:49 下午 2021/11/29
  * @Modified By:
  */
-@WebFilter("/api/**/op")
-@Order(0)
-public class preFilter implements Filter {
+@WebFilter("/api")
+@Order(10)
+public class midFilter implements Filter {
     @Override
     public void doFilter(HttpRequest request, HttpResponse response) {
-        System.out.println("0-进入");
+        System.out.println("10-进入");
     }
-
 }

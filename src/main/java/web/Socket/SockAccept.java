@@ -5,7 +5,7 @@ import com.alibaba.fastjson.JSON;
 import org.mortbay.util.MultiMap;
 import org.mortbay.util.UrlEncoded;
 import server.Server;
-import web.http.Filter.Filter;
+import web.http.Filter.FilterRecord;
 import web.http.Header.Impl.HttpHeaderBuild;
 import web.http.Header.Impl.HttpHeaderBuilder;
 import web.http.HttpRequest;
@@ -34,18 +34,31 @@ import java.util.regex.Pattern;
 /**
  * @author 陈浩
  */
-public record SockAccept(Socket accept, WebServerContext context) implements Runnable {
+public final class SockAccept implements Runnable {
     private final static Pattern JSON_MATCH = Pattern.compile(".*json.*", Pattern.CASE_INSENSITIVE);
     private final static Pattern FORM_MATCH = Pattern.compile(".*x-www-form-urlencoded.*", Pattern.CASE_INSENSITIVE);
+    private final Socket accept;
+    private final WebServerContext context;
+    private InputStream inputStream;
+    private OutputStream outputStream;
+    private Reader reader;
+
+    /**
+     *
+     */
+    public SockAccept(Socket accept, WebServerContext context) {
+        this.accept = accept;
+        this.context = context;
+    }
 
     @Override
     public void run() {
         try {
             int timeout = 6000;
-            InputStream inputStream = accept.getInputStream();
-            OutputStream outputStream = accept.getOutputStream();
+            inputStream = accept.getInputStream();
+            outputStream = accept.getOutputStream();
             accept.setKeepAlive(true);
-            Reader reader = new Reader(inputStream);
+            reader = new Reader(inputStream);
             while (accept.isConnected() && !accept.isClosed()) {
                 HttpHeaderBuild h = new HttpHeaderBuilder();
                 Logger.info(String.valueOf(accept.getPort()));
@@ -82,95 +95,82 @@ public record SockAccept(Socket accept, WebServerContext context) implements Run
                 /*
                  * 处理过滤
                  */
-                for (Filter filter : context.getFilter(httpInfo.path())) {
-                    filter.doFilter(request, response);
+                for (FilterRecord filter : context.getFilter(httpInfo.path())) {
+                    filter.filter().doFilter(request, response);
                 }
 
                 if (headerInfo.getLength() > 0) {
-                    reader.destroy(headerInfo.getLength());
-                    String body = URLDecoder.decode(new String(reader.body, 0, reader.body.length), headerInfo.getCharset());
-                    requestPojo.setBody(body);
-                    switch (headerInfo.getType()) {
-                        case "MyJSON" -> {
-                            Map<String, Object> map = JSON.parseObject(body);
-                            requestPojo.setParams(map);
-                            Logger.info("body:{0}", body);
-                        }
-                        case "FORM" -> {
-                            MultiMap<String> map = new MultiMap<>();
-                            UrlEncoded.decodeTo(body, map, headerInfo.getCharset());
-                            requestPojo.setParams(map);
-                            Logger.info("body:{0}", map.get("id"));
-                        }
-                        default -> {
-                            //将数据读取为byte数组
-                        }
-                    }
+                    readBody(headerInfo, requestPojo);
                 }
                 if (httpInfo.method().equals("OPTIONS")) {
-                    optionHandle(outputStream, httpInfo.version(), headerInfo.getOrigin(), String.valueOf(timeout / 1000));
+                    optionHandle(httpInfo.version(), headerInfo.getOrigin(), String.valueOf(timeout / 1000));
                     return;
                 }
                 /*
                  * 处理请求控制器
                  */
-
                 ControllerRecord controller = context.getController(httpInfo.path());
                 if (Objects.isNull(controller)) {
+                    response.setCode(HttpCode.HTTP_404);
                     error(response);
                 } else if (controller.isServlet()) {
-                    try {
-                        switch (httpInfo.method()) {
-                            case "GET" -> controller.getServlet().doGet(request, response);
-                            case "POST" -> controller.getServlet().doPost(request, response);
+                    switch (httpInfo.method()) {
+                        case "GET" -> controller.getServlet().doGet(request, response);
+                        case "POST" -> controller.getServlet().doPost(request, response);
+                        default -> {
+                            response.setCode(HttpCode.HTTP_405);
+                            error(response);
                         }
-                    } catch (NullPointerException ignore) {
-                        error(response);
                     }
                 } else {
                     ControllerMethod method = controller.getMethod(httpInfo.path());
-                    Parameter[] parameters = method.getParameters();
-                    Object[] params = new Object[parameters.length];
-                    String[] paramNames = method.getParamNames();
-                    for (int i = 0, paramNamesLength = paramNames.length; i < paramNamesLength; i++) {
-                        String paramName = paramNames[i];
-                        Parameter parameter = parameters[i];
-                        Class<?> type = parameter.getType();
-                        if (type == HttpRequest.class || type == HttpServletRequest.class) {
-                            params[i] = request;
-                        } else if (type == HttpResponse.class || type == HttpServletResponse.class) {
-                            params[i] = response;
-                        } else if (String.class.equals(type) || type.isPrimitive() || char.class.equals(type) || int.class.equals(type) || boolean.class.equals(type) || long.class.equals(type) || float.class.equals(type) || byte.class.equals(type)) {
-                            Object param = request.getParam(paramName);
-                            if (type == int.class) {
-                                params[i] = Integer.parseInt((String) param);
-                            } else if (type == boolean.class) {
-                                params[i] = Boolean.getBoolean((String) param);
-                            } else
-                                params[i] = type.cast(param);
-                        } else {
-                            params[i] = request.getParam(type);
+                    if (
+                            method.getMapper(httpInfo.method())
+                    ) {
+                        Parameter[] parameters = method.getParameters();
+                        Object[] params = new Object[parameters.length];
+                        String[] paramNames = method.getParamNames();
+                        for (int i = 0, paramNamesLength = paramNames.length; i < paramNamesLength; i++) {
+                            String paramName = paramNames[i];
+                            Parameter parameter = parameters[i];
+                            Class<?> type = parameter.getType();
+                            if (type == HttpRequest.class || type == HttpServletRequest.class) {
+                                params[i] = request;
+                            } else if (type == HttpResponse.class || type == HttpServletResponse.class) {
+                                params[i] = response;
+                            } else if (String.class.equals(type) || type.isPrimitive() || char.class.equals(type) || int.class.equals(type) || boolean.class.equals(type) || long.class.equals(type) || float.class.equals(type) || byte.class.equals(type)) {
+                                Object param = request.getParam(paramName);
+                                if (type == int.class) {
+                                    params[i] = Integer.parseInt((String) param);
+                                } else if (type == boolean.class) {
+                                    params[i] = Boolean.getBoolean((String) param);
+                                } else
+                                    params[i] = type.cast(param);
+                            } else {
+                                params[i] = request.getParam(type);
+                            }
                         }
-                    }
-                    method.getMethod().setAccessible(true);
-                    Object invoke = method.getMethod().invoke(controller.getInstance(), params);
-                    Class<?> returnType = method.getMethod().getReturnType();
-                    if (returnType.equals(Void.class)) {
-                        //TODO 跳过没有返回值
-                    } else if (String.class.equals(returnType) || returnType.isPrimitive() || char.class.equals(returnType) || int.class.equals(returnType) || boolean.class.equals(returnType) || long.class.equals(returnType) || float.class.equals(returnType) || byte.class.equals(returnType)) {
-                        byteArrayOutputStream.write(invoke.toString().getBytes(response.getResponseUnicode()));
+                        method.getMethod().setAccessible(true);
+                        Object invoke = method.getMethod().invoke(controller.getInstance(), params);
+                        Class<?> returnType = method.getMethod().getReturnType();
+                        if (returnType.equals(Void.class)) {
+                            //TODO 跳过没有返回值
+                        } else if (String.class.equals(returnType) || returnType.isPrimitive() || char.class.equals(returnType) || int.class.equals(returnType) || boolean.class.equals(returnType) || long.class.equals(returnType) || float.class.equals(returnType) || byte.class.equals(returnType)) {
+                            byteArrayOutputStream.write(invoke.toString().getBytes(response.getResponseUnicode()));
+                        } else {
+                            byteArrayOutputStream.write(MyJSON.JSON.ObjectToString(invoke).getBytes(response.getResponseUnicode()));
+                        }
                     } else {
-                        byteArrayOutputStream.write(MyJSON.JSON.ObjectToString(invoke).getBytes(response.getResponseUnicode()));
+                        response.setCode(HttpCode.HTTP_405);
+                        error(response);
                     }
                 }
-                outputStream.write(String.format(NetworkLibrary.HTTP_HEADER.getContent(), httpInfo.version(),
-                        HttpCode.HTTP_200.getCode(),
-                        HttpCode.HTTP_200.getMsg()).getBytes(response.getResponseUnicode()));
-                outputStream.write("Access-control-allow-credentials:true\r\nAccess-Control-Allow-Origin:%s%s".formatted(response.getOrigin(), "\r\n").getBytes(response
-                        .getResponseUnicode()));
+                writeHttpInfo(httpInfo.version(), response.getCode(), response.getResponseUnicode());
                 Map<String, String> headers = response.getHeaders();
+                headers.put("Access-control-allow-credentials", "true");
+                headers.put("Access-Control-Allow-Origin", response.getOrigin());
                 response.setLength(byteArrayOutputStream.size());
-                printHead(headers, response.getResponseUnicode(), outputStream);
+                printHead(headers, response.getResponseUnicode());
                 /*
                  * 输出换行
                  */
@@ -192,9 +192,43 @@ public record SockAccept(Socket accept, WebServerContext context) implements Run
 
     }
 
+    private void writeHttpInfo(String version, HttpCode code, String unicode) throws IOException {
+        outputStream.write(String.format(NetworkLibrary.HTTP_HEADER.getContent(), version,
+                code.getCode(),
+                code.getMsg()).getBytes(unicode));
+    }
+
+    private void readBody(HttpHeaderInfo headerInfo, HttpRequestPojo requestPojo) throws IOException {
+        reader.destroy(headerInfo.getLength());
+        String body = URLDecoder.decode(new String(reader.body, 0, reader.body.length), headerInfo.getCharset());
+        requestPojo.setBody(body);
+        switch (headerInfo.getType()) {
+            case "MyJSON" -> {
+                Map<String, Object> map = JSON.parseObject(body);
+                requestPojo.setParams(map);
+                Logger.info("body:{0}", body);
+            }
+            case "FORM" -> {
+                MultiMap<String> map = new MultiMap<>();
+                UrlEncoded.decodeTo(body, map, headerInfo.getCharset());
+                requestPojo.setParams(map);
+                Logger.info("body:{0}", map.get("id"));
+            }
+            default -> {
+                //将数据读取为byte数组
+            }
+        }
+    }
+
     private void error(HttpServletResponse response) {
         response.setCharset("UTF-8");
-        response.getPrintSteam().println("{\"code\":\"404\",\"msg\":\"页面找不到\"}");
+        response.setContentType("text/html;charset=utf-8;");
+
+        //"{\"code\":\"" + response.getCode().getCode() + "\",\"msg\":\"" + response.getCode().getMsg() + "\"}"
+        String html = """
+                <img width="100%" height="100%" src="http://www.177347.com/d/file/2018/08-12/b99a3abea3c2694213c44e0508018e5d.jpg" />
+                 """;
+        response.getPrintSteam().println(html);
     }
 
     private void ReadRequestHeader(Reader reader, HttpHeaderInfo headerInfo, HttpHeaderBuild h) {
@@ -241,7 +275,7 @@ public record SockAccept(Socket accept, WebServerContext context) implements Run
 
     }
 
-    private void optionHandle(OutputStream outputStream, String version, String origin, String timeout) throws IOException {
+    private void optionHandle(String version, String origin, String timeout) throws IOException {
         outputStream.write("HTTP/%s 200\r\n".formatted(version).getBytes(StandardCharsets.UTF_8));
         outputStream.write("Vary: Origin\r\n".getBytes(StandardCharsets.UTF_8));
         outputStream.write("Vary: Access-Control-Request-Method\r\n".getBytes(StandardCharsets.UTF_8));
@@ -256,17 +290,18 @@ public record SockAccept(Socket accept, WebServerContext context) implements Run
         headers.put("Date", LocalDateTime.now().toString());
         headers.put("Keep-Alive", "timeout=" + timeout);
         headers.put("Connection", "keep-alive");
-        printHead(headers, "UTF-8", outputStream);
+        printHead(headers, "UTF-8");
         outputStream.write(NetworkLibrary.CRLF.getContent().getBytes());
     }
 
-    private void printHead(Map<String, String> headers, String unicode, OutputStream outputStream) throws IOException {
+    private void printHead(Map<String, String> headers, String unicode) throws IOException {
         for (Map.Entry<String, String> entry : headers.entrySet()) {
             String k = entry.getKey();
             String v = entry.getValue();
             outputStream.write(String.format(NetworkLibrary.HTTP_HEADER_MODEL.getContent(), k.trim(), v.trim()).getBytes(unicode));
         }
     }
+
 
     private static class Reader implements Server<Integer> {
         private final InputStream inputStream;

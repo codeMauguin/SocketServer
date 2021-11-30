@@ -90,7 +90,9 @@ public class WebWorkServer implements WebServer {
     @Override
     public void run(String[] args) {
         try {
+            long start = System.currentTimeMillis();
             init(args);
+            context.setStart(start);
             start(context);
         } catch (Throwable ignore) {
         }

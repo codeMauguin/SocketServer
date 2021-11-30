@@ -6,11 +6,9 @@ package web.http.Filter;
  * @Date: created in 2:05 下午 2021/11/29
  * @Modified By:
  */
-public class FilterRecord {
-    private final String mapper;
-    private final Filter filter;
+public record FilterRecord(String mapper, Filter filter, Integer index) implements Comparable<FilterRecord> {
 
-    public FilterRecord(String mapper, Filter filter) {
+    public FilterRecord(String mapper, Filter filter, Integer index) {
         if (mapper.charAt(mapper.length() - 1) == '/') {
             mapper = mapper.concat(".*");
         } else {
@@ -20,13 +18,15 @@ public class FilterRecord {
         }
         this.mapper = mapper.replaceAll("\\*\\*", ".*");
         this.filter = filter;
+        this.index = index;
     }
 
     public boolean matches(String path) {
-        return mapper.matches(path);
+        return path.matches(mapper);
     }
 
-    public Filter getFilter() {
-        return filter;
+    @Override
+    public int compareTo(FilterRecord o) {
+        return index.compareTo(o.index);
     }
 }

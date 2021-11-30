@@ -1,6 +1,7 @@
 package web.server;
 
 import server.Server;
+
 /**
  * @author 陈浩
  * @slogan: Talk is cheap. Show me the code.
@@ -9,5 +10,4 @@ import server.Server;
  */
 public interface WebServer extends Server<WebServerContext> {
     void run(String[] args);
-
 }
