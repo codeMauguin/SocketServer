@@ -18,10 +18,6 @@ public class ControllerRecord {
         this.isServlet = isServlet;
     }
 
-    public ControllerRecord get() {
-        return this;
-    }
-
     public Servlet getServlet() {
         return (Servlet) instance;
     }
@@ -38,7 +34,6 @@ public class ControllerRecord {
         return methods.stream()
                 .filter(method -> this.getRegex().concat(method.getPath()).equals(path))
                 .findFirst()
-                .map(ControllerMethod::getInstance)
                 .orElse(null);
     }
 

@@ -29,9 +29,13 @@ public class Logger {
     public static void warn(final String warn) {
         Logger.log (warn,  Logger.WARN);
     }
-
+    public static void warn(final String msg, final Object... param) {
+        Logger.log (MessageFormat.format (msg, param),  Logger.WARN);
+    }
     public static void error(final String error) {
         Logger.log (error,  Logger.ERROR);
     }
-    
+    public static void error(final String msg, final Object... param) {
+        Logger.log (MessageFormat.format (msg, param),  Logger.ERROR);
+    }
 }

@@ -1,33 +1,38 @@
 package web.http.Controller;
 
+import org.context.Bean.DefaultSingletonBeanRegistry;
 import org.reflections.Reflections;
-import web.http.Controller.annotation.Controller;
-import web.http.Controller.annotation.GetMapper;
-import web.http.Controller.annotation.PostMapper;
-import web.http.Controller.annotation.WebServlet;
+import web.http.Controller.annotation.*;
 import web.http.Filter.Filter;
 import web.http.Filter.FilterRecord;
 import web.http.Filter.annotation.Order;
 import web.http.Filter.annotation.WebFilter;
 import web.http.Libary.ControllerMethod;
 import web.http.Libary.ControllerRecord;
+import web.http.annotation.Component;
+import web.http.annotation.Service;
+import web.server.WebServerContext;
 
+import java.lang.annotation.Annotation;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Set;
 import java.util.TreeSet;
 
 public class UtilScan {
     private static final String prefix = "/";
-    private static final String wild = ".*";
 
-    public static Set<ControllerRecord> scanController(Reflections reflections) throws Throwable {
+    public static Set<ControllerRecord> scanController(Reflections reflections, WebServerContext context) {
         Set<Class<?>> controllers = reflections.getTypesAnnotatedWith(Controller.class);
         Set<ControllerRecord> controllerRecords = new HashSet<>();
         for (Class<?> controller : controllers) {
-            Object registrar = ClassRegistrar.registrar(controller);
-            Controller annotation = controller.getAnnotation(Controller.class);
-            String prefix = annotation.value().trim();//  "/","op/op" "/sss/ss "op/op/" "/xxx/"
+//            Object registrar = ClassRegistrar.registrar(controller);
+            Object registrar = context.getBean(controller);
+            String prefix = "/";
+            if (controller.isAnnotationPresent(RequestMapper.class))
+                prefix = controller.getAnnotation(RequestMapper.class).value().trim();
             prefix = pathProcess(prefix, "");
             Method[] declaredMethods = controller.getDeclaredMethods();
             Set<ControllerMethod> controllerMethods = new HashSet<>();
@@ -87,5 +92,32 @@ public class UtilScan {
             records.add(new ControllerRecord(pathProcess, registrar, null, true));
         }
         return records;
+    }
+
+    public static void scanBean(Set<Reflections> reflections, DefaultSingletonBeanRegistry registry) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        for (Reflections reflection1 : reflections) {
+            registryByAnnotation(reflection1.getTypesAnnotatedWith(Controller.class), Controller.class, registry);
+            registryByAnnotation(reflection1.getTypesAnnotatedWith(Service.class), Service.class, registry);
+            registryByAnnotation(reflection1.getTypesAnnotatedWith(Component.class), Component.class, registry);
+        }
+    }
+
+    private static void registryByAnnotation(Set<Class<?>> target,
+                                             Class<? extends Annotation> annotation, DefaultSingletonBeanRegistry registry) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        for (Class<?> aClass : target) {
+            Annotation annoy = aClass.getAnnotation(annotation);
+            registry.registered(aClass, nameHandle(aClass, annoy));
+        }
+    }
+
+    private static String defaultHandle(Class<?> target) {
+        String simpleName = target.getSimpleName();
+        return simpleName.substring(0, 1).toLowerCase(Locale.ROOT).concat(simpleName.substring(1));
+    }
+
+    private static String nameHandle(Class<?> target, Annotation annotation) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        Method var0 = annotation.annotationType().getMethod("value");
+        String value = (String) var0.invoke(annotation);
+        return value.equals("") ? defaultHandle(target) : value;
     }
 }

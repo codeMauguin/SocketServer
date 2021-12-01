@@ -1,5 +1,7 @@
 package web.server;
 
+import Logger.Logger;
+import org.context.Bean.DefaultSingletonBeanRegistry;
 import org.reflections.Reflections;
 import web.Socket.HttpFactory;
 import web.Socket.WebHttpServerFactory;
@@ -10,10 +12,11 @@ import web.http.Libary.ControllerRecord;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
-import static java.lang.System.arraycopy;
-import static java.lang.System.exit;
+import static java.lang.System.*;
+
 
 /**
  * @author 陈浩
@@ -24,31 +27,42 @@ import static java.lang.System.exit;
 public class WebWorkServer implements WebServer {
     private final Set<Reflections> reflections = new HashSet<>();
     private WebHttpServerFactory webHttpServerFactory;
-    private WebServerContext context;
 
-    private void init(String[] args) throws Throwable {
+    private WebServerContext init(String[] args) throws Throwable {
+        WebServerContext context = null;
         if (args.length == 0) {
-            exit(1);
+            Logger.info("args is null");
+            exit(0);
         } else {
-            initContext(args[0]);
+            context = initContext(args[0]);
             String[] path = new String[args.length - 1];
             arraycopy(args, 1, path, 0, path.length);
             initReflections(path);
         }
-        initFilter();
-        initController();
-        initServlet();
+        initBean(context);
+        initFilter(context);
+        initController(context);
+        initServlet(context);
         initServer();
+        return context;
     }
 
-    private void initServlet() throws Throwable {
+    private void initBean(WebServerContext context) throws Exception {
+        DefaultSingletonBeanRegistry registry = new DefaultSingletonBeanRegistry();
+        UtilScan.scanBean(reflections, registry);
+        Map<String, Object> map = registry.create();
+        context.setBeanPools(map);
+    }
+
+
+    private void initServlet(WebServerContext context) throws Throwable {
         for (Reflections route : reflections) {
             Set<ControllerRecord> scanController = UtilScan.scanServlet(route);
             context.setControllerRecords(scanController);
         }
     }
 
-    private void initFilter() throws Throwable {
+    private void initFilter(WebServerContext context) throws Throwable {
         for (Reflections route : reflections) {
             Set<FilterRecord> scanFilter = UtilScan.scanFilter(route);
             context.setFilterRecords(scanFilter);
@@ -65,14 +79,14 @@ public class WebWorkServer implements WebServer {
         this.webHttpServerFactory = new HttpFactory();
     }
 
-    private void initController() throws Throwable {
+    private void initController(WebServerContext context) throws Throwable {
         for (Reflections route : reflections) {
-            Set<ControllerRecord> controllerRecords = UtilScan.scanController(route);
+            Set<ControllerRecord> controllerRecords = UtilScan.scanController(route,context);
             context.setControllerRecords(controllerRecords);
         }
     }
 
-    private void initContext(String arg) throws UnknownHostException {
+    private WebServerContext initContext(String arg) throws UnknownHostException {
         int indexOf = arg.lastIndexOf(":");
         int port;
         InetAddress ip;
@@ -83,18 +97,20 @@ public class WebWorkServer implements WebServer {
             port = Integer.parseInt(arg);
             ip = InetAddress.getByName("0.0.0.0");
         }
-        this.context = new WebServerContext(port, ip);
+        return new WebServerContext(port, ip);
     }
 
 
     @Override
     public void run(String[] args) {
         try {
-            long start = System.currentTimeMillis();
-            init(args);
+            long start = currentTimeMillis();
+            WebServerContext context = init(args);
             context.setStart(start);
             start(context);
+            gc();
         } catch (Throwable ignore) {
+            Logger.warn(ignore.getMessage());
         }
     }
 

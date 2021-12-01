@@ -20,10 +20,6 @@ public class ControllerMethod {
         init();
     }
 
-    public ControllerMethod getInstance() {
-        return this;
-    }
-
     public Method getMethod() {
         return method;
     }

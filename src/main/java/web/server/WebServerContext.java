@@ -4,10 +4,7 @@ import web.http.Filter.FilterRecord;
 import web.http.Libary.ControllerRecord;
 
 import java.net.InetAddress;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -18,24 +15,36 @@ import java.util.stream.Collectors;
  */
 public class WebServerContext {
     private final int port;
+    private final InetAddress ip;
+    private final Set<ControllerRecord> controllerRecords = new HashSet<>();
+    private long start;
+    private Set<FilterRecord> filterRecords;
 
-    protected void setStart(long start) {
-        this.start = start;
+    private Map<String, Object> beanPools;
+
+    public WebServerContext(int port, InetAddress ip) {
+        this.port = port;
+        this.ip = ip;
     }
 
-    private  long start;
+    public <T> T getBean(Class<T> var0) {
+        return (T) beanPools.entrySet().stream().filter(var1 -> var1.getValue().getClass().equals(var0)).findFirst().map(Map.Entry::getValue).orElse(null);
+    }
+
+    public <T> T getBean(String beanName) {
+        return (T) beanPools.get(beanName);
+    }
+
+    public void setBeanPools(Map<String, Object> beanPools) {
+        this.beanPools = beanPools;
+    }
 
     public long getStart() {
         return start;
     }
 
-    private final InetAddress ip;
-    private final Set<ControllerRecord> controllerRecords = new HashSet<>();
-    private Set<FilterRecord> filterRecords;
-
-    public WebServerContext(int port, InetAddress ip) {
-        this.port = port;
-        this.ip = ip;
+    protected void setStart(long start) {
+        this.start = start;
     }
 
     public Set<FilterRecord> getFilter(String path) {
@@ -56,7 +65,6 @@ public class WebServerContext {
         return controllerRecords.stream()
                 .filter(record -> Objects.nonNull(record.getMethod(path)))
                 .findFirst()
-                .map(ControllerRecord::get)
                 .orElse(null);
     }
 
