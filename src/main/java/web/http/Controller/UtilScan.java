@@ -94,10 +94,11 @@ public class UtilScan {
         return records;
     }
 
-    public static void scanBean(Set<Reflections> reflections, DefaultSingletonBeanRegistry registry) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+    public static void prepareBean(Set<Reflections> reflections, DefaultSingletonBeanRegistry registry) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
         for (Reflections reflection1 : reflections) {
             registryByAnnotation(reflection1.getTypesAnnotatedWith(Controller.class), Controller.class, registry);
             registryByAnnotation(reflection1.getTypesAnnotatedWith(Service.class), Service.class, registry);
+
             registryByAnnotation(reflection1.getTypesAnnotatedWith(Component.class), Component.class, registry);
         }
     }

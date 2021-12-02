@@ -1,10 +1,14 @@
 package web.server;
 
+import org.context.Bean.DefaultSingletonBeanRegistry;
 import web.http.Filter.FilterRecord;
 import web.http.Libary.ControllerRecord;
 
 import java.net.InetAddress;
-import java.util.*;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 /**
@@ -20,7 +24,7 @@ public class WebServerContext {
     private long start;
     private Set<FilterRecord> filterRecords;
 
-    private Map<String, Object> beanPools;
+    private DefaultSingletonBeanRegistry beanPools;
 
     public WebServerContext(int port, InetAddress ip) {
         this.port = port;
@@ -28,14 +32,14 @@ public class WebServerContext {
     }
 
     public <T> T getBean(Class<T> var0) {
-        return (T) beanPools.entrySet().stream().filter(var1 -> var1.getValue().getClass().equals(var0)).findFirst().map(Map.Entry::getValue).orElse(null);
+        return beanPools.getBean(var0);
     }
 
     public <T> T getBean(String beanName) {
-        return (T) beanPools.get(beanName);
+        return beanPools.getBean(beanName);
     }
 
-    public void setBeanPools(Map<String, Object> beanPools) {
+    public void setBeanPools(DefaultSingletonBeanRegistry beanPools) {
         this.beanPools = beanPools;
     }
 

@@ -12,7 +12,6 @@ import web.http.Libary.ControllerRecord;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
 import static java.lang.System.*;
@@ -49,9 +48,9 @@ public class WebWorkServer implements WebServer {
 
     private void initBean(WebServerContext context) throws Exception {
         DefaultSingletonBeanRegistry registry = new DefaultSingletonBeanRegistry();
-        UtilScan.scanBean(reflections, registry);
-        Map<String, Object> map = registry.create();
-        context.setBeanPools(map);
+        UtilScan.prepareBean(reflections, registry);
+        registry.refreshBean();
+        registry.initBean(context);
     }
 
 
@@ -81,7 +80,7 @@ public class WebWorkServer implements WebServer {
 
     private void initController(WebServerContext context) throws Throwable {
         for (Reflections route : reflections) {
-            Set<ControllerRecord> controllerRecords = UtilScan.scanController(route,context);
+            Set<ControllerRecord> controllerRecords = UtilScan.scanController(route, context);
             context.setControllerRecords(controllerRecords);
         }
     }

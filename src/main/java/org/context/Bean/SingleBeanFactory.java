@@ -1,6 +1,10 @@
 package org.context.Bean;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * @author 陈浩
@@ -8,17 +12,20 @@ import java.lang.reflect.Constructor;
  * @Date: created in 9:19 下午 2021/11/30
  * @Modified By:
  */
-public class SingleBeanFactory<T> implements BeanFactory<T> {
-    private final Class<T> target;
-    private final Class<?>[] parameters;
-    private final Object[] params;
-
+public class SingleBeanFactory implements FactoryBean {
+    private final Class<?> target;
     private final String beanName;
+    private Class<?>[] parameters;
+    private Object[] params;
 
-    public SingleBeanFactory(Class<T> target, Class<?>[] parameters, String beanName) {
+    private Object instance;
+    private boolean isDefault;
+    private Constructor<?> constructor;
+
+    private Map<Field, BeanDefinition> definitions;
+
+    public SingleBeanFactory(Class<?> target, String beanName) {
         this.target = target;
-        this.parameters = parameters;
-        params = new Object[parameters.length];
         this.beanName = beanName;
     }
 
@@ -26,27 +33,67 @@ public class SingleBeanFactory<T> implements BeanFactory<T> {
         return beanName;
     }
 
-    protected void fill(int index, Object param) {
+    @Override
+    public void setConstructorVars(Class<?>[] constructorVars) {
+        this.parameters = constructorVars;
+        this.params = new Object[constructorVars.length];
+    }
+
+    @Override
+    public void setDependency(Map<Field, BeanDefinition> dependency) {
+        this.definitions = dependency;
+    }
+
+    public void fill(int index, Object param) {
         params[index] = param;
     }
 
-    protected boolean isDefault() {
-        return parameters.length == 0;
+    public boolean isDefault() {
+        return this.isDefault;
     }
 
     @Override
-    public T getObject() throws Exception {
-        Constructor<T> constructor = target.getDeclaredConstructor(parameters);
-        constructor.setAccessible(true);
-        return constructor.newInstance(params);
+    public void setDefault(boolean isDefault) {
+        this.isDefault = isDefault;
     }
 
     @Override
-    public Class<T> getType() {
+    public Class<?>[] getConstructorParameters() {
+        return this.parameters;
+    }
+
+    @Override
+    public void setConstructor(Constructor<?> constructor) {
+        this.constructor = constructor;
+    }
+
+    @Override
+    public boolean check(Class<?> target) {
+        return Arrays.stream(parameters).anyMatch(var -> var.equals(target));
+    }
+
+    @Override
+    public Map<Field, BeanDefinition> getDefinitions() {
+        return definitions;
+    }
+
+    @Override
+    public Object getObject() throws Exception {
+        if (Objects.isNull(instance)) {
+            constructor.setAccessible(true);
+            return constructor.newInstance(params);
+        }
+        return instance;
+    }
+
+    @Override
+    public void setObject(Object o) {
+        this.instance = o;
+    }
+
+    @Override
+    public Class<?> getType() {
         return target;
     }
 
-    public Class<?>[] getParameters() {
-        return parameters;
-    }
 }
