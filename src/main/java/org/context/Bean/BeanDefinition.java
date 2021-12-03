@@ -1,6 +1,6 @@
 package org.context.Bean;
 
-import java.util.Set;
+import java.util.List;
 
 /**
  * @author 陈浩
@@ -11,7 +11,7 @@ import java.util.Set;
 public interface BeanDefinition<T> {
     void resolvableConstructorDependency() throws NoSuchMethodException;
 
-    void resolvableFieldDependency(Set<BeanDefinition> definitions);
+    void resolvableFieldDependency(List<BeanDefinition> definitions);
 
     BeanFactory getBeanFactory();
 

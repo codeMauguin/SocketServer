@@ -1,25 +1,32 @@
 package web.http.Libary;
 
 import web.http.Controller.Servlet;
+import web.server.WebServerContext;
 
 import java.util.Set;
 
 public class ControllerRecord {
     private final String regex;
-    private final Object instance;
+    private final Class<?> target;
     private final Set<ControllerMethod> methods;
-
     private final boolean isServlet;
+    private WebServerContext context;
+    private Servlet servlet;
 
-    public ControllerRecord(String regex, Object instance, Set<ControllerMethod> methods, boolean isServlet) {
+    public ControllerRecord(String regex, Object context, Set<ControllerMethod> methods, Class<?> target,
+                            boolean isServlet) {
         this.regex = regex;
-        this.instance = instance;
+        if (isServlet)
+            this.servlet = (Servlet) context;
+        else
+            this.context = (WebServerContext) context;
         this.methods = methods;
+        this.target = target;
         this.isServlet = isServlet;
     }
 
     public Servlet getServlet() {
-        return (Servlet) instance;
+        return servlet;
     }
 
     public String getRegex() {
@@ -27,7 +34,7 @@ public class ControllerRecord {
     }
 
     public Object getInstance() {
-        return instance;
+        return context.getBean(target);
     }
 
     public ControllerMethod getMethod(String path) {

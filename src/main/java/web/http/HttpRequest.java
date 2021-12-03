@@ -9,7 +9,5 @@ public interface HttpRequest {
 
     InputStream getInputStream();
 
-    Object getParam(String name);
 
-    <T> T getParam(Class<T> src);
 }

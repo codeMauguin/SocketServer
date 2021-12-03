@@ -1,6 +1,5 @@
 package web.http.Libary;
 
-import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -11,8 +10,6 @@ import java.util.Objects;
  */
 public final class HttpRequestPojo {
     private final HttpInfo info;
-    private String body = null;
-
     /**
      *
      */
@@ -24,21 +21,6 @@ public final class HttpRequestPojo {
         return info;
     }
 
-    public String getBody() {
-        return body ;
-    }
-
-    public void setBody(String body) {
-        this.body = body;
-    }
-
-    public Map<String, Object> getParams() {
-        return this.info.params();
-    }
-
-    public void setParams(Map<String, Object> params) {
-        this.info.params().putAll(params);
-    }
 
     public String path() {
         return info.path();

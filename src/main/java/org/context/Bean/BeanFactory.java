@@ -22,4 +22,6 @@ public interface BeanFactory {
 
     Map<Field, BeanDefinition> getDefinitions();
 
+    boolean isScope();
+
 }

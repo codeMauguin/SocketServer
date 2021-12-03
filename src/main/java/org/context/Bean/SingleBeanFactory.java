@@ -1,10 +1,12 @@
 package org.context.Bean;
 
+import org.context.Bean.annotation.Scope;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 
 /**
  * @author 陈浩
@@ -14,19 +16,33 @@ import java.util.Objects;
  */
 public class SingleBeanFactory implements FactoryBean {
     private final Class<?> target;
-    private final String beanName;
+    private String beanName;
     private Class<?>[] parameters;
     private Object[] params;
 
     private Object instance;
     private boolean isDefault;
+
+    private boolean scope = true;
     private Constructor<?> constructor;
 
     private Map<Field, BeanDefinition> definitions;
 
     public SingleBeanFactory(Class<?> target, String beanName) {
-        this.target = target;
+        this(target);
         this.beanName = beanName;
+    }
+
+    private SingleBeanFactory(Class<?> target) {
+        this.target = target;
+        if (target.isAnnotationPresent(Scope.class)) {
+            Scope annotation = target.getAnnotation(Scope.class);
+            String scope = annotation.value().toLowerCase(Locale.ROOT).trim();
+            this.scope = switch (scope) {
+                case "prototype", "session" -> false;
+                default -> true;
+            };
+        }
     }
 
     public String getBeanName() {
@@ -78,11 +94,18 @@ public class SingleBeanFactory implements FactoryBean {
     }
 
     @Override
+    public boolean isScope() {
+        return scope;
+    }
+
+    @Override
+    public void init() throws Exception {
+        constructor.setAccessible(true);
+        this.instance = constructor.newInstance(params);
+    }
+
+    @Override
     public Object getObject() throws Exception {
-        if (Objects.isNull(instance)) {
-            constructor.setAccessible(true);
-            return constructor.newInstance(params);
-        }
         return instance;
     }
 

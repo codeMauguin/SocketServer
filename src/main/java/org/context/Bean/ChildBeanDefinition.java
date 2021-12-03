@@ -8,6 +8,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.text.MessageFormat;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -45,7 +46,7 @@ public class ChildBeanDefinition<T> implements BeanDefinition<T> {
     }
 
     @Override
-    public void resolvableFieldDependency(Set<BeanDefinition> definitions) {
+    public void resolvableFieldDependency(List<BeanDefinition> definitions) {
         Map<Field, BeanDefinition> depends = new LinkedHashMap<>();
         Class<?> target = this.factoryBean.getType();
         Set<Field> fields = ReflectionUtils.getAllFields(target, field -> field.isAnnotationPresent(Resource.class));

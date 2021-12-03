@@ -1,9 +1,7 @@
 package web.Socket;
 
 import Logger.Logger;
-import com.alibaba.fastjson.JSON;
-import org.mortbay.util.MultiMap;
-import org.mortbay.util.UrlEncoded;
+import org.context.util.MessageUtil;
 import server.Server;
 import web.http.Filter.FilterRecord;
 import web.http.Header.Impl.HttpHeaderBuild;
@@ -59,6 +57,7 @@ public final class SockAccept implements Runnable {
             outputStream = accept.getOutputStream();
             accept.setKeepAlive(true);
             reader = new Reader(inputStream);
+            MessageUtil messageUtil = null;
             while (accept.isConnected() && !accept.isClosed()) {
                 HttpHeaderBuild h = new HttpHeaderBuilder();
                 Logger.info(String.valueOf(accept.getPort()));
@@ -100,7 +99,9 @@ public final class SockAccept implements Runnable {
                 }
 
                 if (headerInfo.getLength() > 0) {
-                    readBody(headerInfo, requestPojo);
+                    messageUtil = readBody(headerInfo, httpInfo);
+                } else {
+                    messageUtil = new MessageUtil(httpInfo.params(), null, headerInfo.getType());
                 }
                 if (httpInfo.method().equals("OPTIONS")) {
                     optionHandle(httpInfo.version(), headerInfo.getOrigin(), String.valueOf(timeout / 1000));
@@ -130,6 +131,9 @@ public final class SockAccept implements Runnable {
                         Parameter[] parameters = method.getParameters();
                         Object[] params = new Object[parameters.length];
                         String[] paramNames = method.getParamNames();
+                        int index =
+                                parameters.length - Math.toIntExact(Arrays.stream(parameters).filter(var -> HttpRequest.class.isAssignableFrom(var.getType()) || HttpResponse.class.isAssignableFrom(var.getType())).count());
+
                         for (int i = 0, paramNamesLength = paramNames.length; i < paramNamesLength; i++) {
                             String paramName = paramNames[i];
                             Parameter parameter = parameters[i];
@@ -138,27 +142,19 @@ public final class SockAccept implements Runnable {
                                 params[i] = request;
                             } else if (type == HttpResponse.class || type == HttpServletResponse.class) {
                                 params[i] = response;
-                            } else if (String.class.equals(type) || type.isPrimitive() || char.class.equals(type) || int.class.equals(type) || boolean.class.equals(type) || long.class.equals(type) || float.class.equals(type) || byte.class.equals(type)) {
-                                Object param = request.getParam(paramName);
-                                if (type == int.class) {
-                                    params[i] = Integer.parseInt((String) param);
-                                } else if (type == boolean.class) {
-                                    params[i] = Boolean.getBoolean((String) param);
-                                } else
-                                    params[i] = type.cast(param);
                             } else {
-                                params[i] = request.getParam(type);
+                                params[i] = messageUtil.resolve(paramName, type, index);
                             }
                         }
                         method.getMethod().setAccessible(true);
                         Object invoke = method.getMethod().invoke(controller.getInstance(), params);
                         Class<?> returnType = method.getMethod().getReturnType();
-                        if (returnType.equals(Void.class)) {
-                            //TODO 跳过没有返回值
-                        } else if (String.class.equals(returnType) || returnType.isPrimitive() || char.class.equals(returnType) || int.class.equals(returnType) || boolean.class.equals(returnType) || long.class.equals(returnType) || float.class.equals(returnType) || byte.class.equals(returnType)) {
-                            byteArrayOutputStream.write(invoke.toString().getBytes(response.getResponseUnicode()));
-                        } else {
-                            byteArrayOutputStream.write(MyJSON.JSON.ObjectToString(invoke).getBytes(response.getResponseUnicode()));
+                        if (!returnType.equals(Void.class)) {
+                            if (String.class.equals(returnType) || returnType.isPrimitive() || char.class.equals(returnType) || int.class.equals(returnType) || boolean.class.equals(returnType) || long.class.equals(returnType) || float.class.equals(returnType) || byte.class.equals(returnType)) {
+                                byteArrayOutputStream.write(invoke.toString().getBytes(response.getResponseUnicode()));
+                            } else {
+                                byteArrayOutputStream.write(MyJSON.JSON.ObjectToString(invoke).getBytes(response.getResponseUnicode()));
+                            }
                         }
                     } else {
                         response.setCode(HttpCode.HTTP_405);
@@ -198,26 +194,10 @@ public final class SockAccept implements Runnable {
                 code.getMsg()).getBytes(unicode));
     }
 
-    private void readBody(HttpHeaderInfo headerInfo, HttpRequestPojo requestPojo) throws IOException {
+    private MessageUtil readBody(HttpHeaderInfo headerInfo, HttpInfo info) throws IOException {
         reader.destroy(headerInfo.getLength());
         String body = URLDecoder.decode(new String(reader.body, 0, reader.body.length), headerInfo.getCharset());
-        requestPojo.setBody(body);
-        switch (headerInfo.getType()) {
-            case "MyJSON" -> {
-                Map<String, Object> map = JSON.parseObject(body);
-                requestPojo.setParams(map);
-                Logger.info("body:{0}", body);
-            }
-            case "FORM" -> {
-                MultiMap<String> map = new MultiMap<>();
-                UrlEncoded.decodeTo(body, map, headerInfo.getCharset());
-                requestPojo.setParams(map);
-                Logger.info("body:{0}", map.get("id"));
-            }
-            default -> {
-                //将数据读取为byte数组
-            }
-        }
+        return new MessageUtil(info.params(), body, headerInfo.getType());
     }
 
     private void error(HttpServletResponse response) {
@@ -252,7 +232,7 @@ public final class SockAccept implements Runnable {
                     }
                     if (JSON_MATCH.matcher(value).matches()) {
                         headerInfo.setType(
-                                "MyJSON"
+                                "JSON"
                         );
                     } else if (FORM_MATCH.matcher(value).matches()) {
                         headerInfo.setType(

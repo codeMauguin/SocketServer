@@ -11,20 +11,13 @@ import java.util.List;
 
 @Component
 class pojo {
-    int code = 200;
+    boolean code = false;
     String msg = "成功获取";
     Object id;
     String name;
     List<u> us = Arrays.asList(new u(null), new u(null));
-    @Resource
-    private u u;
 
-    pojo(hello id) {
-        this.id = id;
-        name = "陈浩-" + id;
-    }
-
-    public int getCode() {
+    public boolean getCode() {
         return code;
     }
 
@@ -44,14 +37,6 @@ class pojo {
         return us;
     }
 
-    public com.controller.u getU() {
-        return u;
-    }
-
-    public void setU(com.controller.u u) {
-        System.out.println("u = " + u);
-        this.u = u;
-    }
 }
 
 @Service
@@ -90,7 +75,8 @@ public class hello {
     }
 
     @GetMapper("/api")
-    pojo hello() {
+    pojo hello(boolean id) {
+        pojo.code = id;
         return pojo;
     }
 }

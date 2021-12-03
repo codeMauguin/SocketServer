@@ -5,7 +5,11 @@ import web.server.WebServerContext;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.*;
+import java.text.MessageFormat;
+import java.util.Collection;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.Objects;
 import java.util.function.Predicate;
 
 import static java.util.Locale.ENGLISH;
@@ -20,9 +24,8 @@ public class DefaultSingletonBeanRegistry {
     /*
     有构造器依赖 最后创造实例
      */
-    private final Set<BeanDefinition> definitions = new HashSet<>();
+    private final LinkedList<BeanDefinition> definitionQueue = new LinkedList<>();
 
-    private final Set<BeanDefinition> definitionPool = new HashSet<>();
 
     private final String errorInfo = """
 
@@ -39,32 +42,73 @@ public class DefaultSingletonBeanRegistry {
         BeanFactory factory = new SingleBeanFactory(target, beanName);
         BeanDefinition beanDefinition = new ChildBeanDefinition((FactoryBean) factory);
         beanDefinition.resolvableConstructorDependency();
-        definitions.add(beanDefinition);
+        definitionQueue.add(beanDefinition);
     }
 
 
     public <T> T getBean(String var0) {
-        BeanDefinition first = findFirst(definitionPool, beanDefinition -> beanDefinition.getBeanFactory().getBeanName().equals(var0));
+        BeanDefinition<?> first = findFirst(definitionQueue,
+                beanDefinition -> beanDefinition.getBeanFactory().getBeanName().equals(var0));
         try {
-            return Objects.nonNull(first) ? (T) first.getBeanFactory().getObject() : null;
+            return Objects.nonNull(first) ? (T) checkScope(first).getBeanFactory().getObject() : null;
         } catch (Exception ignore) {
         }
         return null;
     }
 
+    private BeanDefinition<?> checkScope(BeanDefinition<?> definition) throws Exception {
+        BeanFactory beanFactory = definition.getBeanFactory();
+        if (!beanFactory.isScope()) {
+            if (!beanFactory.isDefault()) {
+                Class<?>[] constructorParameters = ((FactoryBean) beanFactory).getConstructorParameters();
+                for (int i = 0, constructorParametersLength = constructorParameters.length; i < constructorParametersLength; i++) {
+                    Object bean = getBean(constructorParameters[i]);
+                    ((FactoryBean) beanFactory).fill(i, bean);
+                }
+            }
+            ((FactoryBean) beanFactory).init();
+        }
+        populate(definition);
+        return definition;
+    }
+
+    private void populate(BeanDefinition<?> definition) {
+        Map<Field, BeanDefinition> definitions = definition.getBeanFactory().getDefinitions();
+        for (Map.Entry<Field, BeanDefinition> fieldBeanDefinitionEntry : definitions.entrySet()) {
+            Field field = fieldBeanDefinitionEntry.getKey();
+            Object bean = getBean(fieldBeanDefinitionEntry.getValue().getBeanFactory().getType());
+            try {
+                populateField(definition.getBeanFactory().getType(), field, definition.getBeanFactory().getObject(), bean);
+            } catch (Exception e) {
+            }
+        }
+    }
+
+    private void populateField(Class<?> type, Field key, Object target, Object fieldBean) throws Exception {
+        Method method = type.getMethod("set" + key.getName().substring(0, 1).toUpperCase(ENGLISH) + key.getName().substring(1),
+                key.getType());
+        try {
+            method.setAccessible(true);
+            method.invoke(target, fieldBean);
+        } catch (Exception ignore) {
+            key.setAccessible(true);
+            key.set(target, fieldBean);
+        }
+    }
+
     public <T> T getBean(Class<T> var0) {
-        BeanDefinition first = findFirst(definitionPool,
+        BeanDefinition<?> first = findFirst(definitionQueue,
                 beanDefinition -> beanDefinition.getBeanFactory().getType().equals(var0));
         try {
-            return Objects.nonNull(first) ? (T) first.getBeanFactory().getObject() : null;
+            return Objects.nonNull(first) ? (T) checkScope(first).getBeanFactory().getObject() : null;
         } catch (Exception ignore) {
         }
         return null;
     }
 
     public void refreshBean() {
-        for (BeanDefinition definition : definitions) {
-            definition.resolvableFieldDependency(definitions);
+        for (BeanDefinition definition : definitionQueue) {
+            definition.resolvableFieldDependency(definitionQueue);
         }
     }
 
@@ -73,34 +117,40 @@ public class DefaultSingletonBeanRegistry {
     }
 
     private void createBeanInstance(BeanDefinition<?> definition) throws Exception {
-        definitions.remove(definition);
-        BeanFactory beanFactory = definition.getBeanFactory();
-        if (beanFactory.isDefault()) {
-            ((FactoryBean) beanFactory).setObject(beanFactory.getObject());
-        } else {
-            FactoryBean factoryBean = (FactoryBean) beanFactory;
-            Class<?>[] constructorParameters = factoryBean.getConstructorParameters();
-            for (int i = 0, constructorParametersLength = constructorParameters.length; i < constructorParametersLength; i++) {
-                Class<?> constructorParameter = constructorParameters[i];
-                BeanDefinition find = findFirst(definitions,
-                        beanDefinition -> beanDefinition.getBeanFactory().getType().equals(constructorParameter));
-                if (find == null) {
-                    find = findFirst(definitionPool,
-                            beanDefinition -> beanDefinition.getBeanFactory().getType().equals(constructorParameter));
-                    if (find != null) {
-                        createBeanInstance(find);
+        if (definition.getBeanFactory().getObject() == null) {
+            BeanFactory beanFactory = definition.getBeanFactory();
+            if (beanFactory.isDefault()) {
+                ((FactoryBean) beanFactory).init();
+            } else {
+                FactoryBean factoryBean = (FactoryBean) beanFactory;
+                Class<?>[] constructorParameters = factoryBean.getConstructorParameters();
+                for (int i = 0, constructorParametersLength = constructorParameters.length; i < constructorParametersLength; i++) {
+                    Class<?> constructorParameter = constructorParameters[i];
+                    BeanDefinition first = findFirst(definitionQueue,
+                            definitions -> definitions.getBeanFactory().getType().equals(constructorParameter));
+                    if (first.getBeanFactory().check(beanFactory.getType())) {
+                        Logger.error(errorInfo, MessageFormat.format("services defined in file [{0}]\n" +
+                                "┌─────┐\n" +
+                                "|  {1}\n" +
+                                "↑     ↓\n" +
+                                "|  {2} defined in file [{3}]\n" +
+                                "└─────┘", beanFactory.getType(), beanFactory.getBeanName(), constructorParameter.getSimpleName(), constructorParameter));
+                        System.exit(0);
+                    }
+
+                    if (first != null) {
+                        if (first.getBeanFactory().getObject() == null) {
+                            createBeanInstance(first);
+                        }
                     } else {
                         Logger.error(errorInfo, "bean %s is not found".formatted(constructorParameter.getSimpleName()));
                         System.exit(0);
                     }
-                } else {
-                    createBeanInstance(find);
+                    factoryBean.fill(i, first.getBeanFactory().getObject());
                 }
-                factoryBean.fill(i, find.getBeanFactory().getObject());
+                ((FactoryBean) beanFactory).init();
             }
-            ((FactoryBean) beanFactory).setObject(beanFactory.getObject());
         }
-        definitionPool.add(definition);
     }
 
     public void initBean(WebServerContext context) throws Exception {
@@ -116,28 +166,18 @@ public class DefaultSingletonBeanRegistry {
             Field key = definitionEntry.getKey();
             BeanDefinition value = definitionEntry.getValue();
             Class<?> type = beanFactory.getType();
-            try {
-                Method method = type.getMethod("set" + key.getName().substring(0, 1).toUpperCase(ENGLISH) + key.getName().substring(1),
-                        key.getType());
-                method.setAccessible(true);
-                method.invoke(beanFactory.getObject(), value.getBeanFactory().getObject());
-            } catch (NoSuchMethodException ignore) {
-                key.setAccessible(true);
-                key.set(beanFactory.getObject(), value.getBeanFactory().getObject());
-            }
+            populateField(type, key, beanFactory.getObject(), value.getBeanFactory().getObject());
         }
     }
 
     private void populateBean() throws Exception {
-        for (BeanDefinition beanDefinition : definitionPool) {
+        for (BeanDefinition beanDefinition : definitionQueue) {
             populateBean(beanDefinition);
         }
     }
 
     private void createBeanInstances() throws Exception {
-        while (definitions.size() > 0) {
-            List<BeanDefinition> beanDefinitions = definitions.stream().toList();
-            BeanDefinition beanDefinition = beanDefinitions.get(beanDefinitions.size() - 1);
+        for (BeanDefinition beanDefinition : definitionQueue) {
             createBeanInstance(beanDefinition);
         }
     }

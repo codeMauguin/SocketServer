@@ -47,7 +47,7 @@ public class UtilScan {
                     controllerMethods.add(new ControllerMethod(method, suffix, new String[]{"POST"}));
                 }
             }
-            controllerRecords.add(new ControllerRecord(prefix, registrar, controllerMethods, false));
+            controllerRecords.add(new ControllerRecord(prefix, context, controllerMethods, controller, false));
         }
         return controllerRecords;
     }
@@ -89,7 +89,7 @@ public class UtilScan {
             WebServlet annotation = servlets.getAnnotation(WebServlet.class);
             String pathProcess = pathProcess(annotation.value(), "");
             pathProcess = pathProcess.substring(0, pathProcess.length() - 1);
-            records.add(new ControllerRecord(pathProcess, registrar, null, true));
+            records.add(new ControllerRecord(pathProcess, registrar, null, null, true));
         }
         return records;
     }

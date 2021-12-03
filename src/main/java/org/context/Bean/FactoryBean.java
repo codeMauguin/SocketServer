@@ -19,6 +19,8 @@ public interface FactoryBean extends BeanFactory {
 
     void setObject(Object o);
 
+    void init() throws Exception;
+
     void setDefault(boolean isDefault);
 
     void setConstructor(Constructor<?> constructor);
