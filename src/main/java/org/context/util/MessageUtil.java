@@ -45,7 +45,7 @@ public class MessageUtil {
         init();
     }
 
-    private static boolean isPrimitive(Class<?> source) {
+    public static boolean isPrimitive(Class<?> source) {
         return source.isPrimitive() || primitiveWrapperTypeMap.containsKey(source);
     }
 

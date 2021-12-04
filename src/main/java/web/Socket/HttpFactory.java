@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.net.Socket;
 
 public class HttpFactory extends WebHttpServerFactory {
-    private Socket accept;
 
     @Override
     public void start(WebServerContext context) throws Throwable {
@@ -18,7 +17,7 @@ public class HttpFactory extends WebHttpServerFactory {
          *
          */
         while (this.start) {
-            accept = this.serverSocket.accept();
+            Socket accept = this.serverSocket.accept();
             executor.execute(new SockAccept(accept, context));
         }
     }

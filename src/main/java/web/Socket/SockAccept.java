@@ -2,7 +2,6 @@ package web.Socket;
 
 import Logger.Logger;
 import org.context.util.MessageUtil;
-import server.Server;
 import web.http.Filter.FilterRecord;
 import web.http.Header.Impl.HttpHeaderBuild;
 import web.http.Header.Impl.HttpHeaderBuilder;
@@ -24,7 +23,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
@@ -35,9 +34,20 @@ import java.util.regex.Pattern;
 public final class SockAccept implements Runnable {
     private final static Pattern JSON_MATCH = Pattern.compile(".*json.*", Pattern.CASE_INSENSITIVE);
     private final static Pattern FORM_MATCH = Pattern.compile(".*x-www-form-urlencoded.*", Pattern.CASE_INSENSITIVE);
+    private final static Map<String, String> optionHeaders = new LinkedHashMap<>();
+
+    static {
+
+        optionHeaders.put("Access-Control-Allow-Methods", "POST");
+        optionHeaders.put("Access-Control-Allow-Headers", "content-type");
+        optionHeaders.put("Access-Control-Max-Age", "1800");
+        optionHeaders.put("Allow", "GET, HEAD, POST, PUT, DELETE, OPTIONS, PATCH");
+        optionHeaders.put("Content-Length", "0");
+        optionHeaders.put("Connection", "keep-alive");
+    }
+
     private final Socket accept;
     private final WebServerContext context;
-    private InputStream inputStream;
     private OutputStream outputStream;
     private Reader reader;
 
@@ -53,11 +63,11 @@ public final class SockAccept implements Runnable {
     public void run() {
         try {
             int timeout = 6000;
-            inputStream = accept.getInputStream();
+            InputStream inputStream = accept.getInputStream();
             outputStream = accept.getOutputStream();
             accept.setKeepAlive(true);
-            reader = new Reader(inputStream);
-            MessageUtil messageUtil = null;
+            reader = new Reader(new ReaderInputSteam(inputStream));
+            MessageUtil messageUtil;
             while (accept.isConnected() && !accept.isClosed()) {
                 HttpHeaderBuild h = new HttpHeaderBuilder();
                 Logger.info(String.valueOf(accept.getPort()));
@@ -67,7 +77,6 @@ public final class SockAccept implements Runnable {
                 /*
                   读取信息
                  */
-                reader.start(-1);
                 String http = reader.readLine();
                 Logger.info(String.format("http:%s", http));
                 if ("".equals(http.trim())) {
@@ -129,28 +138,16 @@ public final class SockAccept implements Runnable {
                             method.getMapper(httpInfo.method())
                     ) {
                         Parameter[] parameters = method.getParameters();
-                        Object[] params = new Object[parameters.length];
+                        Object[] args;
                         String[] paramNames = method.getParamNames();
                         int index =
                                 parameters.length - Math.toIntExact(Arrays.stream(parameters).filter(var -> HttpRequest.class.isAssignableFrom(var.getType()) || HttpResponse.class.isAssignableFrom(var.getType())).count());
-
-                        for (int i = 0, paramNamesLength = paramNames.length; i < paramNamesLength; i++) {
-                            String paramName = paramNames[i];
-                            Parameter parameter = parameters[i];
-                            Class<?> type = parameter.getType();
-                            if (type == HttpRequest.class || type == HttpServletRequest.class) {
-                                params[i] = request;
-                            } else if (type == HttpResponse.class || type == HttpServletResponse.class) {
-                                params[i] = response;
-                            } else {
-                                params[i] = messageUtil.resolve(paramName, type, index);
-                            }
-                        }
+                        args = resolveMethodArgs(parameters, paramNames, messageUtil, index, request, response);
                         method.getMethod().setAccessible(true);
-                        Object invoke = method.getMethod().invoke(controller.getInstance(), params);
+                        Object invoke = method.getMethod().invoke(controller.getInstance(), args);
                         Class<?> returnType = method.getMethod().getReturnType();
                         if (!returnType.equals(Void.class)) {
-                            if (String.class.equals(returnType) || returnType.isPrimitive() || char.class.equals(returnType) || int.class.equals(returnType) || boolean.class.equals(returnType) || long.class.equals(returnType) || float.class.equals(returnType) || byte.class.equals(returnType)) {
+                            if (MessageUtil.isPrimitive(returnType)) {
                                 byteArrayOutputStream.write(invoke.toString().getBytes(response.getResponseUnicode()));
                             } else {
                                 byteArrayOutputStream.write(MyJSON.JSON.ObjectToString(invoke).getBytes(response.getResponseUnicode()));
@@ -161,11 +158,11 @@ public final class SockAccept implements Runnable {
                         error(response);
                     }
                 }
-                writeHttpInfo(httpInfo.version(), response.getCode(), response.getResponseUnicode());
                 Map<String, String> headers = response.getHeaders();
                 headers.put("Access-control-allow-credentials", "true");
                 headers.put("Access-Control-Allow-Origin", response.getOrigin());
                 response.setLength(byteArrayOutputStream.size());
+                writeHttpInfo(httpInfo.version(), response.getCode(), response.getResponseUnicode());
                 printHead(headers, response.getResponseUnicode());
                 /*
                  * 输出换行
@@ -174,7 +171,6 @@ public final class SockAccept implements Runnable {
                 if (byteArrayOutputStream.size() > 0)
                     byteArrayOutputStream.writeTo(outputStream);
                 outputStream.flush();
-                reader.reload();
             }
         } catch (IOException e) {
             try {
@@ -188,6 +184,24 @@ public final class SockAccept implements Runnable {
 
     }
 
+    private Object[] resolveMethodArgs(Parameter[] parameters, String[] paramNames, MessageUtil messageUtil, int index,
+                                       HttpServletRequest request, HttpServletResponse response) {
+        Object[] args = new Object[parameters.length];
+        for (int i = 0, paramNamesLength = paramNames.length; i < paramNamesLength; i++) {
+            String paramName = paramNames[i];
+            Parameter parameter = parameters[i];
+            Class<?> type = parameter.getType();
+            if (type == HttpRequest.class || type == HttpServletRequest.class) {
+                args[i] = request;
+            } else if (type == HttpResponse.class || type == HttpServletResponse.class) {
+                args[i] = response;
+            } else {
+                args[i] = messageUtil.resolve(paramName, type, index);
+            }
+        }
+        return args;
+    }
+
     private void writeHttpInfo(String version, HttpCode code, String unicode) throws IOException {
         outputStream.write(String.format(NetworkLibrary.HTTP_HEADER.getContent(), version,
                 code.getCode(),
@@ -195,8 +209,8 @@ public final class SockAccept implements Runnable {
     }
 
     private MessageUtil readBody(HttpHeaderInfo headerInfo, HttpInfo info) throws IOException {
-        reader.destroy(headerInfo.getLength());
-        String body = URLDecoder.decode(new String(reader.body, 0, reader.body.length), headerInfo.getCharset());
+        byte[] readByteArray = reader.readByteArray(headerInfo.getLength());
+        String body = URLDecoder.decode(new String(readByteArray, 0, readByteArray.length), headerInfo.getCharset());
         return new MessageUtil(info.params(), body, headerInfo.getType());
     }
 
@@ -211,7 +225,7 @@ public final class SockAccept implements Runnable {
         response.getPrintSteam().println(html);
     }
 
-    private void ReadRequestHeader(Reader reader, HttpHeaderInfo headerInfo, HttpHeaderBuild h) {
+    private void ReadRequestHeader(Reader reader, HttpHeaderInfo headerInfo, HttpHeaderBuild h) throws IOException {
         String line;
         while (!(line = reader.readLine().trim()).equals("")) {
             int split = line.indexOf(":");
@@ -260,17 +274,10 @@ public final class SockAccept implements Runnable {
         outputStream.write("Vary: Origin\r\n".getBytes(StandardCharsets.UTF_8));
         outputStream.write("Vary: Access-Control-Request-Method\r\n".getBytes(StandardCharsets.UTF_8));
         outputStream.write("Vary: Access-Control-Request-Headers\r\n".getBytes(StandardCharsets.UTF_8));
-        Map<String, String> headers = new HashMap<>();
-        headers.put("Access-Control-Allow-Origin", origin);
-        headers.put("Access-Control-Allow-Methods", "POST");
-        headers.put("Access-Control-Allow-Headers", "content-type");
-        headers.put("Access-Control-Max-Age", "1800");
-        headers.put("Allow", "GET, HEAD, POST, PUT, DELETE, OPTIONS, PATCH");
-        headers.put("Content-Length", "0");
-        headers.put("Date", LocalDateTime.now().toString());
-        headers.put("Keep-Alive", "timeout=" + timeout);
-        headers.put("Connection", "keep-alive");
-        printHead(headers, "UTF-8");
+        optionHeaders.put("Access-Control-Allow-Origin", origin);
+        optionHeaders.put("Date", LocalDateTime.now().toString());
+        optionHeaders.put("Keep-Alive", "timeout=" + timeout);
+        printHead(optionHeaders, "UTF-8");
         outputStream.write(NetworkLibrary.CRLF.getContent().getBytes());
     }
 
@@ -283,96 +290,4 @@ public final class SockAccept implements Runnable {
     }
 
 
-    private static class Reader implements Server<Integer> {
-        private final InputStream inputStream;
-        private int index = 0;
-        private int readIndex = 0;
-        private int size = 4096;
-        private byte[] buffer = new byte[size];
-        private byte[] body;
-
-        public Reader(InputStream inputStream) {
-            this.inputStream = inputStream;
-        }
-
-
-        @Override
-        public void start(Integer k) throws IOException {
-            //这个会阻塞
-//            while (index < size) {
-//                body = inputStream.read();
-//                if (body == -1) {
-//                    break;
-//                }
-//                buffer[index++] = (byte) body;
-//                if (index >= size) {
-//                    expansion();
-//                }
-//            }
-            while (true) {
-                int read = inputStream.read(buffer, index, size - index);
-                if (read != -1) {
-                    index += read;
-                } else {
-                    break;
-                }
-                if (index >= size) {
-                    expansion();
-                } else {
-                    break;
-                }
-            }
-        }
-
-        private char byteToChar(byte b) {
-            return (char) (b & 0xff);
-        }
-
-        public String readLine() {
-            StringBuilder builder = new StringBuilder();
-            int state = 0;
-            while (readIndex < index) {
-                byte datum = buffer[readIndex++];
-                char str = byteToChar(datum);
-                if ((state == 0 && str == '\r') || (state == 1 && str == '\n')) {
-                    state++;
-                } else {
-                    if (state > 0)
-                        break;
-                    builder.append(str);
-                }
-                if (state == 2) {
-                    break;
-                }
-            }
-            return builder.toString();
-        }
-
-        /**
-         * 扩容缓冲区
-         */
-        private void expansion() {
-            this.size *= 2;
-            this.buffer = Arrays.copyOf(this.buffer, this.size);
-        }
-
-        private void reload() throws IOException {
-            index = 0;
-            readIndex = 0;
-            size = 4096;
-            buffer = new byte[size];
-            body = new byte[0];
-        }
-
-        @Override
-        public void destroy(Integer k) throws IOException {
-            if (index > readIndex) {
-                body = new byte[size];
-                System.arraycopy(buffer, readIndex, body, 0, index - readIndex);
-            } else {
-                body = new byte[size];
-                inputStream.read(body, 0, size);
-            }
-        }
-    }
 }
