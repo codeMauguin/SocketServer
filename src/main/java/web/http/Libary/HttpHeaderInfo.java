@@ -5,6 +5,28 @@ public class HttpHeaderInfo {
     private String origin = "";
     private String charset = "UTF-8";
     private int length = 0;
+    private final HttpInfo info;
+    private String timeout;
+
+    public HttpHeaderInfo(HttpInfo info) {
+        this.info = info;
+    }
+
+    public String getTimeout() {
+        return timeout;
+    }
+
+    public void setTimeout(String timeout) {
+        this.timeout = timeout;
+    }
+
+    public String getMethod() {
+        return info.method();
+    }
+
+    public String getVersion() {
+        return info.version();
+    }
 
     public String getType() {
         return type;
@@ -36,5 +58,9 @@ public class HttpHeaderInfo {
 
     public void setLength(int length) {
         this.length = length;
+    }
+
+    public HttpInfo getInfo() {
+        return info;
     }
 }

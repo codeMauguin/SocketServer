@@ -1,24 +1,19 @@
 package web.http.Header.Impl;
 
+import web.http.Header.HttpHeader;
+
 import java.util.Locale;
 import java.util.Map;
 
-public class HttpHeaderBuilder extends HttpHeaderBuild {
-	public HttpHeaderBuilder() {
-		try {
-			super.start (3);
-		} catch (Throwable throwable) {
-			throwable.printStackTrace ( );
-		}
-	}
-	
-	@Override
-	public String get(String key) {
-		for (Map.Entry<String, String> stringStringEntry : this.headers.entrySet ( )) {
-			if (stringStringEntry.getKey ( ).toLowerCase (Locale.ROOT).equals (key.toLowerCase (Locale.ROOT))) {
-				return stringStringEntry.getValue ( );
-			}
-		}
-		return null;
-	}
+public class HttpHeaderBuilder implements HttpHeader {
+    private final Map<String, String> headers;
+
+    public HttpHeaderBuilder(Map<String, String> headers) {
+        this.headers = headers;
+    }
+
+    @Override
+    public String get(String key) {
+        return this.headers.entrySet().stream().filter(stringStringEntry -> stringStringEntry.getKey().toLowerCase(Locale.ROOT).equals(key.toLowerCase(Locale.ROOT))).findFirst().map(Map.Entry::getValue).orElse(null);
+    }
 }

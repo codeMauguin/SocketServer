@@ -5,10 +5,7 @@ import web.http.Filter.FilterRecord;
 import web.http.Libary.ControllerRecord;
 
 import java.net.InetAddress;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -24,11 +21,30 @@ public class WebServerContext {
     private long start;
     private Set<FilterRecord> filterRecords;
 
+    private String[] origins = new String[]{"http://127.0.0.1:5500"};
+
+    private int timeout = 3000;
     private DefaultSingletonBeanRegistry beanPools;
 
     public WebServerContext(int port, InetAddress ip) {
         this.port = port;
         this.ip = ip;
+    }
+
+    public String getTimeout() {
+        return String.valueOf(timeout / 1000);
+    }
+
+    public void setTimeout(int timeout) {
+        this.timeout = timeout;
+    }
+
+    public void setOrigins(String[] origins) {
+        this.origins = origins;
+    }
+
+    public boolean checkOrigin(String origin) {
+        return Arrays.asList(origins).contains(origin);
     }
 
     public <T> T getBean(Class<T> var0) {

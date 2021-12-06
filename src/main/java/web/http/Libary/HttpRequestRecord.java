@@ -8,12 +8,13 @@ import java.util.Objects;
  * @Date: created in 22:08 2021/11/6
  * @Modified By:
  */
-public final class HttpRequestPojo {
+public final class HttpRequestRecord {
     private final HttpInfo info;
+
     /**
      *
      */
-    public HttpRequestPojo(HttpInfo info) {
+    public HttpRequestRecord(HttpInfo info) {
         this.info = info;
     }
 
@@ -34,7 +35,7 @@ public final class HttpRequestPojo {
     public boolean equals(Object obj) {
         if (obj == this) return true;
         if (obj == null || obj.getClass() != this.getClass()) return false;
-        var that = (HttpRequestPojo) obj;
+        var that = (HttpRequestRecord) obj;
         return Objects.equals(this.info.path(), that.info.path()) &&
                 Objects.equals(this.info.method(), that.info.method());
     }
@@ -46,7 +47,7 @@ public final class HttpRequestPojo {
 
     @Override
     public String toString() {
-        return "HttpRequestPojo[" +
+        return "HttpRequestRecord[" +
                 "path=" + info.path() + ", " +
                 "method=" + info.method() + ']';
     }

@@ -7,6 +7,8 @@ public interface HttpRequest {
 
     String getPath();
 
+    String getMethod();
+
     InputStream getInputStream();
 
 

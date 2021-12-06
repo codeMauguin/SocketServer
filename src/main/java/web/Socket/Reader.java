@@ -1,7 +1,8 @@
 package web.Socket;
 
+import web.Socket.InputStream.ReaderInputStream;
+
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 /**
@@ -10,13 +11,23 @@ import java.util.Arrays;
  * @Date: created in 4:29 下午 2021/12/4
  * @Modified By:
  */
+public
 class Reader {
-    //    private final InputStream inputStream;
-    private final byte[] EDF = new byte[]{'\r', '\n'};
-    private final ReaderInputSteam inputStream;
+    private final static String DEFAULT_RETURN = null;
+    private final ReaderInputStream inputStream;
+    private byte[] EDF = new byte[]{'\r', '\n'};
+    private int size = 10;
 
-    public Reader(ReaderInputSteam inputStream) {
+    public Reader(ReaderInputStream inputStream) {
         this.inputStream = inputStream;
+    }
+
+    public void setBufferLength(int size) {
+        this.size = size;
+    }
+
+    public void setEDF(byte[] EDF) {
+        this.EDF = EDF;
     }
 
     @SuppressWarnings("all")
@@ -26,64 +37,38 @@ class Reader {
         return buffer;
     }
 
-
     public String readLine() throws IOException {
-        int read = inputStream.read();
+        int read;
+        read = inputStream.read();
         if (read == -1) {
-            return "";
+            return DEFAULT_RETURN;
         }
         int index = 1;
-        byte[] buffer = new byte[10];
-        byte[] temporaryBuffer = new byte[2];
+        int state = 0;
+        byte[] buffer = new byte[size];
         buffer[0] = (byte) read;
-        if (read == 13) {
-            inputStream.next(10);
-            return "";
-        }
-        P1:
-        while (true) {
-            if (index + 1 >= buffer.length)
+        for (; ; index++) {
+            for (int i = 0; i < EDF.length; i++) {
+                if (state == i && read == EDF[i]) {
+                    state++;
+                }
+            }
+            if (state == EDF.length) {
+                break;
+            }
+            if (index >= buffer.length)
                 buffer = expansion(buffer);
-            inputStream.mark(2);
-            int readLen = inputStream.read(temporaryBuffer, 0, 2);
-            switch (readLen) {
-                case -1:
-                    break P1;
-                case 2: {
-                    buffer[index + 1] = temporaryBuffer[1];
-                }
-                case 1: {
-                    buffer[index] = temporaryBuffer[0];
-                }
-                default:
-                    index += readLen;
+            read = inputStream.read();
+            if (read == -1) {
+                break;
             }
-            if (index >= 2) {
-                if (buffer[index - 2] == '\n') {
-                    if (Arrays.equals(buffer, index - 3, index - 1, EDF, 0, 2)) {
-                        inputStream.reset();
-                        inputStream.next();
-                        index = index - 3;
-                        break;
-                    }
-                } else if (buffer[index - 2] == '\r') {
-                    if (Arrays.equals(buffer, index - 2, index, EDF, 0, 2)) {
-                        index = index - 2;
-                        break;
-                    }
-                }
-            } else {
-                // 0 1 2 3
-                if (Arrays.equals(buffer, 0, 2, EDF, 0, 2)) {
-                    return "";
-                }
-            }
+            buffer[index] = (byte) read;
         }
-        return new String(buffer, 0, index, StandardCharsets.UTF_8);
+        return new String(buffer, 0, index - EDF.length);
     }
 
     private byte[] expansion(byte[] buffer) {
-        return Arrays.copyOf(buffer, buffer.length * 2);
+        return Arrays.copyOf(buffer, buffer.length + (buffer.length >> 1));
     }
 
 }

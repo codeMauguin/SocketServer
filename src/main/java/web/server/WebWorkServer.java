@@ -3,7 +3,7 @@ package web.server;
 import Logger.Logger;
 import org.context.Bean.DefaultSingletonBeanRegistry;
 import org.reflections.Reflections;
-import web.Socket.HttpFactory;
+import web.Socket.HttpNioServer;
 import web.Socket.WebHttpServerFactory;
 import web.http.Controller.UtilScan;
 import web.http.Filter.FilterRecord;
@@ -75,10 +75,11 @@ public class WebWorkServer implements WebServer {
     }
 
     private void initServer() {
-        this.webHttpServerFactory = new HttpFactory();
+//        this.webHttpServerFactory = new HttpBioServer();
+        this.webHttpServerFactory = new HttpNioServer();
     }
 
-    private void initController(WebServerContext context) throws Throwable {
+    private void initController(WebServerContext context) {
         for (Reflections route : reflections) {
             Set<ControllerRecord> controllerRecords = UtilScan.scanController(route, context);
             context.setControllerRecords(controllerRecords);
@@ -108,8 +109,8 @@ public class WebWorkServer implements WebServer {
             context.setStart(start);
             start(context);
             gc();
-        } catch (Throwable ignore) {
-            Logger.warn(ignore.getMessage());
+        } catch (Throwable e) {
+            Logger.warn(e.getMessage());
         }
     }
 
