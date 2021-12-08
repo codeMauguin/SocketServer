@@ -8,13 +8,19 @@ import web.Socket.WebHttpServerFactory;
 import web.http.Controller.UtilScan;
 import web.http.Filter.FilterRecord;
 import web.http.Libary.ControllerRecord;
+import web.util.ConfigReader;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.Vector;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
-import static java.lang.System.*;
+import static java.lang.System.exit;
+import static java.lang.System.gc;
 
 
 /**
@@ -27,23 +33,38 @@ public class WebWorkServer implements WebServer {
     private final Set<Reflections> reflections = new HashSet<>();
     private WebHttpServerFactory webHttpServerFactory;
 
-    private WebServerContext init(String[] args) throws Throwable {
-        WebServerContext context = null;
+    private WebServerContext context;
+
+    private WebWorkServer init(String[] args) throws Throwable {
+        List<String> path = new Vector<>();
         if (args.length == 0) {
             Logger.info("args is null");
             exit(0);
         } else {
-            context = initContext(args[0]);
-            String[] path = new String[args.length - 1];
-            arraycopy(args, 1, path, 0, path.length);
-            initReflections(path);
+            AtomicInteger port = new AtomicInteger(80);
+            //Mac 默认的host运行没有权限
+            AtomicReference<InetAddress> host = new AtomicReference<>(InetAddress.getByName("0.0.0.0"));
+            for (String arg : args) {
+                ConfigReader reader = new ConfigReader(arg);
+                reader.read((var0, var1) -> {
+                    switch (var0) {
+                        case "port" -> port.set(Integer.parseInt(var1));
+                        case "host" -> {
+                            try {
+                                host.set(InetAddress.getByName(var1));
+                            } catch (UnknownHostException ignore) {
+                            }
+                        }
+                        case "path" -> {
+                            path.add(var1);
+                        }
+                    }
+                });
+            }
+            context = initContext(port.get(), host.get());
         }
-        initBean(context);
-        initFilter(context);
-        initController(context);
-        initServlet(context);
-        initServer();
-        return context;
+        initReflections(path.toArray(String[]::new));
+        return this;
     }
 
     private void initBean(WebServerContext context) throws Exception {
@@ -86,30 +107,18 @@ public class WebWorkServer implements WebServer {
         }
     }
 
-    private WebServerContext initContext(String arg) throws UnknownHostException {
-        int indexOf = arg.lastIndexOf(":");
-        int port;
-        InetAddress ip;
-        if (indexOf > -1) {
-            port = Integer.parseInt(arg.substring(indexOf + 1));
-            ip = InetAddress.getByName(arg.substring(0, indexOf));
-        } else {
-            port = Integer.parseInt(arg);
-            ip = InetAddress.getByName("0.0.0.0");
-        }
-        return new WebServerContext(port, ip);
+    private WebServerContext initContext(int port, InetAddress host) throws UnknownHostException {
+        return new WebServerContext(port, host);
     }
 
 
     @Override
     public void run(String[] args) {
         try {
-            long start = currentTimeMillis();
-            WebServerContext context = init(args);
-            context.setStart(start);
-            start(context);
+            init(args).start(context);
             gc();
         } catch (Throwable e) {
+            e.printStackTrace();
             Logger.warn(e.getMessage());
         }
     }
@@ -117,6 +126,11 @@ public class WebWorkServer implements WebServer {
 
     @Override
     public void start(WebServerContext context) throws Throwable {
+        initBean(context);
+        initFilter(context);
+        initController(context);
+        initServlet(context);
+        initServer();
         this.webHttpServerFactory.start(context);
     }
 

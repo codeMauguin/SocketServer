@@ -1,5 +1,6 @@
 package web.Socket;
 
+import Logger.Logger;
 import web.Socket.nio.EventMonitoring;
 import web.server.WebServerContext;
 
@@ -17,7 +18,6 @@ import java.nio.channels.ServerSocketChannel;
  */
 public class HttpNioServer extends WebHttpServerFactory {
     private Selector selector;
-    private ServerSocketChannel serverChannel;
 
     private EventMonitoring eventMonitoring;
 
@@ -27,6 +27,7 @@ public class HttpNioServer extends WebHttpServerFactory {
         initChannel(context);
         initListener(context);
         executor.execute(eventMonitoring);
+        Logger.info("The program is running and starting up:{0}ms", System.currentTimeMillis() - context.getStart());
     }
 
     @Override
@@ -41,7 +42,7 @@ public class HttpNioServer extends WebHttpServerFactory {
 
     private void initChannel(WebServerContext context) throws Throwable {
         selector = Selector.open();
-        serverChannel = ServerSocketChannel.open();
+        ServerSocketChannel serverChannel = ServerSocketChannel.open();
         serverChannel.configureBlocking(false);
         serverChannel.socket().bind(new InetSocketAddress(context.getIp(), context.getPort()));
         serverChannel.register(selector, SelectionKey.OP_ACCEPT);

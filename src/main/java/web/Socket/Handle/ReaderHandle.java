@@ -69,8 +69,12 @@ public class ReaderHandle implements EventHandle<SelectionKey> {
             reader = new Reader(inputStream);
             try {
                 info = initHttpInfo(reader);
-            } catch (IllegalArgumentException | IOException ignore) {
-                registerAgain();
+            } catch (IllegalArgumentException | IOException e) {
+                try {
+                    key.channel().close();
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                }
                 return;
             }
             super.run();
@@ -80,9 +84,6 @@ public class ReaderHandle implements EventHandle<SelectionKey> {
         public void start() {
             //读取io数据
             try {
-                Logger.info("RemoteAddress:{0}", client.getRemoteAddress());
-                Logger.info("path:{0}", info.path());
-                Logger.info("method:{0}", info.method());
                 headerInfo = new HttpHeaderInfo(info);
                 headerInfo.setTimeout(context.getTimeout());
                 HttpRequestRecord pojo = new HttpRequestRecord(info);
@@ -91,17 +92,17 @@ public class ReaderHandle implements EventHandle<SelectionKey> {
                 ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
                 response = new HttpServletResponse(outputStream, headerInfo);
                 init(request, response, reader);
+                Logger.info("RemoteAddress:{0}", client.getRemoteAddress());
+                Logger.info("path:{0}", info.path());
+                Logger.info("method:{0}", info.method());
             } catch (IOException e) {
                 e.printStackTrace();
             }
-
-
         }
 
         @Override
         public void destroy() {
             //处理消息
-
 //            对跨域处理
             HttpOptionRequest.handle(context, request, (HttpServletResponse) response);
 //            进入过滤器
@@ -125,6 +126,7 @@ public class ReaderHandle implements EventHandle<SelectionKey> {
             try {
                 channel.configureBlocking(false);
                 channel.register(selector, SelectionKey.OP_WRITE, response);
+                selector.wakeup();
             } catch (IOException e) {
                 e.printStackTrace();
             }

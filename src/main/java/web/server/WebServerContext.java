@@ -18,7 +18,7 @@ public class WebServerContext {
     private final int port;
     private final InetAddress ip;
     private final Set<ControllerRecord> controllerRecords = new HashSet<>();
-    private long start;
+    private final long start;
     private Set<FilterRecord> filterRecords;
 
     private String[] origins = new String[]{"http://127.0.0.1:5500"};
@@ -29,6 +29,7 @@ public class WebServerContext {
     public WebServerContext(int port, InetAddress ip) {
         this.port = port;
         this.ip = ip;
+        this.start = System.currentTimeMillis();
     }
 
     public String getTimeout() {
@@ -61,10 +62,6 @@ public class WebServerContext {
 
     public long getStart() {
         return start;
-    }
-
-    protected void setStart(long start) {
-        this.start = start;
     }
 
     public Set<FilterRecord> getFilter(String path) {

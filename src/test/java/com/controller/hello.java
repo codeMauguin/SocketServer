@@ -2,16 +2,17 @@ package com.controller;
 
 import org.context.Bean.annotation.Resource;
 import web.http.Controller.annotation.Controller;
-import web.http.Controller.annotation.GetMapper;
+import web.http.Controller.annotation.PostMapper;
 import web.http.annotation.Component;
 import web.http.annotation.Service;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 @Component
 class pojo {
-    boolean code = false;
+    boolean code;
     String msg = "成功获取";
     Object id;
     String name;
@@ -74,9 +75,10 @@ public class hello {
         this.pojo = pojo;
     }
 
-    @GetMapper("/api")
-    pojo hello(boolean id) {
-        pojo.code = id;
+    @PostMapper("/api")
+    pojo hello(List<Integer> test, Map<String, Integer> table) {
+        System.out.println("test = " + test);
+        System.out.println("table = " + table);
         return pojo;
     }
 }

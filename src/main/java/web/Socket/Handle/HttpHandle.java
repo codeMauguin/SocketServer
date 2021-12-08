@@ -15,9 +15,8 @@ import web.util.Assert;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Parameter;
-import java.nio.charset.StandardCharsets;
+import java.lang.reflect.ParameterizedType;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.regex.Pattern;
@@ -138,7 +137,8 @@ public abstract class HttpHandle implements WebSockServer {
                 String[] paramNames = method.getParamNames();
                 int index =
                         parameters.length - Math.toIntExact(Arrays.stream(parameters).filter(var -> HttpRequest.class.isAssignableFrom(var.getType()) || HttpResponse.class.isAssignableFrom(var.getType())).count());
-                args = resolveMethodArgs(parameters, paramNames, util, index, (HttpServletRequest) request, (HttpServletResponse) response);
+//                args = resolveMethodArgs(parameters, paramNames, util, index, (HttpServletRequest) request, (HttpServletResponse) response);
+                args = util.resolve(parameters, request, response);
                 method.getMethod().setAccessible(true);
                 Object invoke = method.getMethod().invoke(controller.getInstance(), args);
                 Class<?> returnType = method.getMethod().getReturnType();
@@ -163,6 +163,8 @@ public abstract class HttpHandle implements WebSockServer {
         for (int i = 0, paramNamesLength = paramNames.length; i < paramNamesLength; i++) {
             String paramName = paramNames[i];
             Parameter parameter = parameters[i];
+            ParameterizedType parameterizedType = (ParameterizedType) parameter.getParameterizedType();
+            System.out.println(Arrays.toString(parameterizedType.getActualTypeArguments()));
             Class<?> type = parameter.getType();
             if (type == HttpRequest.class || type == HttpServletRequest.class) {
                 args[i] = request;
@@ -195,15 +197,8 @@ public abstract class HttpHandle implements WebSockServer {
                 bytes = reader.readByteArray(headerInfo.getLength());
             } catch (IOException ignored) {
             }
-            try {
-                util = new MessageUtil(headerInfo.getInfo().params(), new String(bytes, 0, headerInfo.getLength(),
-                        headerInfo.getCharset()),
-                        headerInfo.getType());
-            } catch (UnsupportedEncodingException e) {
-                util = new MessageUtil(headerInfo.getInfo().params(), new String(bytes, 0, headerInfo.getLength(),
-                        StandardCharsets.UTF_8),
-                        headerInfo.getType());
-            }
+            util = new MessageUtil(headerInfo.getInfo().params(), bytes,
+                    headerInfo.getType());
         } else {
             util = new MessageUtil(headerInfo.getInfo().params(), null, headerInfo.getType());
         }

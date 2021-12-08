@@ -1,5 +1,6 @@
 package web.Socket.Handle;
 
+import Logger.Logger;
 import web.Socket.Reader;
 import web.http.HttpRequest;
 import web.http.HttpResponse;
@@ -53,6 +54,8 @@ public class WriteHandle implements EventHandle<SelectionKey> {
         @Override
         public void start() {
             //整理response数据
+
+            Logger.info("响应");
             response = (HttpServletResponse) key.attachment();
             init(null, response, null);
             StringBuilder builder = new StringBuilder();
@@ -73,9 +76,14 @@ public class WriteHandle implements EventHandle<SelectionKey> {
         public void destroy() {
             //想客户端推送数据
             SocketChannel channel = (SocketChannel) key.channel();
-            writeBuffer(buffer, channel);
-            if (responseOutputStream.size() > 0) {
-                writeBuffer(ByteBuffer.wrap(responseOutputStream.toByteArray()), channel);
+            try {
+                writeBuffer(buffer, channel);
+                if (responseOutputStream.size() > 0) {
+                    writeBuffer(ByteBuffer.wrap(responseOutputStream.toByteArray()), channel);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+                return;
             }
             registerAgain();
         }
@@ -85,19 +93,23 @@ public class WriteHandle implements EventHandle<SelectionKey> {
             try {
                 channel.configureBlocking(false);
                 channel.register(selector, SelectionKey.OP_READ);
+                selector.wakeup();
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
 
-        private void writeBuffer(ByteBuffer buffer, SocketChannel channel) {
+        private void writeBuffer(ByteBuffer buffer, SocketChannel channel) throws IOException {
             try {
                 while (buffer.hasRemaining()) {
 
                     channel.write(buffer);
 
                 }
-            } catch (IOException ignored) {
+            } catch (IOException e) {
+                e.printStackTrace();
+                key.channel().close();
+                throw new IOException("Broken pipe");
             }
         }
 

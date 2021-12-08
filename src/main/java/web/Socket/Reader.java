@@ -3,6 +3,7 @@ package web.Socket;
 import web.Socket.InputStream.ReaderInputStream;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 /**
@@ -64,7 +65,7 @@ class Reader {
             }
             buffer[index] = (byte) read;
         }
-        return new String(buffer, 0, index - EDF.length);
+        return new String(buffer, 0, index - EDF.length, StandardCharsets.UTF_8);
     }
 
     private byte[] expansion(byte[] buffer) {

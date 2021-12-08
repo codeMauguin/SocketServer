@@ -28,7 +28,7 @@ public class NioReaderInputStream extends ReaderInputStream {
         ByteBuffer allocate = ByteBuffer.allocate(1);
         int read = client.read(allocate);
         allocate.flip();
-        return read == -1 ? -1 : allocate.get();
+        return (read == -1 || read == 0) ? -1 : allocate.get();
     }
 
     @Override
@@ -41,7 +41,7 @@ public class NioReaderInputStream extends ReaderInputStream {
         if (c == -1) {
             return -1;
         }
-        b[off] = (byte) c;
+        b[off] = (byte) (c & 0xff);
         int i = 1;
         ByteBuffer allocate = ByteBuffer.allocate(len - 1);
         int read = client.read(allocate);
@@ -50,8 +50,7 @@ public class NioReaderInputStream extends ReaderInputStream {
         } else {
             i = read + 1;
         }
-        allocate.flip();
-        System.arraycopy(allocate.array(), 0, b, 0, allocate.position());
+        System.arraycopy(allocate.array(), 0, b, off + 1, allocate.position());
         return i;
     }
 }

@@ -12,9 +12,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Set;
-import java.util.Vector;
 import java.util.concurrent.ThreadPoolExecutor;
 
 /**
@@ -27,8 +25,8 @@ public class EventMonitoring implements WebSockServer {
     private final Selector selector;
     private final WebServerContext context;
     private final ThreadPoolExecutor executor;
-    private final List<SelectionKey> queue = new Vector<>();
     private volatile boolean start = true;
+
     private EventHandle<SelectionKey> reader;
     private EventHandle<SelectionKey> write;
 
@@ -37,24 +35,13 @@ public class EventMonitoring implements WebSockServer {
         this.context = context;
         this.executor = executor;
     }
-
-    private void addWrite(SelectionKey key) {
-        synchronized (queue) {
-            queue.add(key);
-            selector.wakeup();
-        }
-    }
-
-    private void handleEvents() {
-
-    }
-
+    private int index = 0;
     @Override
     public void start() {
         initEventHandle();
         try {
             while (start) {
-                int size = selector.select(100);
+                int size = selector.select();
                 if (size > 0) {
                     Set<SelectionKey> selectionKeys = selector.selectedKeys();
                     Iterator<SelectionKey> iterator = selectionKeys.iterator();
@@ -68,6 +55,7 @@ public class EventMonitoring implements WebSockServer {
                                 key.cancel();
                                 reader.handle(key);
                             } else if (key.isWritable()) {
+                                System.out.println(++index);
                                 key.cancel();
                                 write.handle(key);
                             }

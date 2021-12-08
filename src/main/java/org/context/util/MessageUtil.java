@@ -3,7 +3,14 @@ package org.context.util;
 import com.alibaba.fastjson.JSON;
 import org.mortbay.util.MultiMap;
 import org.mortbay.util.UrlEncoded;
+import web.http.HttpRequest;
+import web.http.HttpResponse;
+import web.util.ConfigReader;
+import web.util.MessageReader;
+import web.util.TypeConverter;
 
+import java.lang.reflect.Array;
+import java.lang.reflect.Parameter;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
@@ -30,15 +37,17 @@ public class MessageUtil {
         primitiveWrapperTypeMap.put(Integer.class, Integer.TYPE);
         primitiveWrapperTypeMap.put(Long.class, Long.TYPE);
         primitiveWrapperTypeMap.put(Short.class, Short.TYPE);
-        primitiveWrapperTypeMap.put(Void.class, Void.TYPE);
+        primitiveWrapperTypeMap.put(String.class, String.class);
     }
 
     private final String pathParameter;
     private final MultiMap<String> pathParameters = new MultiMap<>();
-    private final String body;
+    private final byte[] body;
     private final String ContentType;
 
-    public MessageUtil(String pathParameter, String body, String contentType) {
+    Map<String, MessageReader.lexec> bodyLexec;
+
+    public MessageUtil(String pathParameter, byte[] body, String contentType) {
         this.pathParameter = pathParameter;
         this.body = body;
         ContentType = contentType.trim().isEmpty() ? "FORM" : contentType;
@@ -50,88 +59,110 @@ public class MessageUtil {
     }
 
     private void init() {
-        if (pathParameter != null) {
+        if (pathParameter != null && !pathParameter.equals("")) {
             UrlEncoded.decodeTo(URLDecoder.decode(pathParameter, StandardCharsets.UTF_8), pathParameters, "UTF-8");
         }
         if (body != null) {
             switch (ContentType) {
                 case "JSON" -> {
+                    MessageReader reader = new MessageReader(body);
 
+                    bodyLexec = reader.read();
                 }
                 case "FORM" -> {
-                    UrlEncoded.decodeTo(URLDecoder.decode(body, StandardCharsets.UTF_8), pathParameters, "UTF-8");
+                    UrlEncoded.decodeTo(URLDecoder.decode(new String(body, StandardCharsets.UTF_8), StandardCharsets.UTF_8)
+                            , pathParameters,
+                            "UTF-8");
                 }
             }
         }
     }
 
-    private Object get(String key) {
-        Object o = pathParameters.get(key);
-        if (o != null) {
-            return o;
+    public Object[] resolve(Parameter[] parameters, HttpRequest request, HttpResponse response) {
+        Object[] args = new Object[parameters.length];
+        //只从body读数据
+        for (int i = 0, parametersLength = parameters.length; i < parametersLength; i++) {
+            Parameter parameter = parameters[i];
+            MessageReader.lexec lexec = getLexec(parameter.getName());
+            if (TypeConverter.isPrimitive(parameter.getType())) {
+                Object arg = TypeConverter.typePrimitiveConversion(lexec, parameter.getType());
+                Array.set(args, i, arg);
+                continue;
+            }
+            if (Collection.class.isAssignableFrom(parameter.getType())) {
+                Object arg = TypeConverter.typeCollectionConversion(parameter, lexec);
+                Array.set(args, i, arg);
+                continue;
+            }
+            if (Map.class.isAssignableFrom(parameter.getType())) {
+                Object arg = TypeConverter.typeMapConversion(parameter, lexec);
+                Array.set(args, i, arg);
+            }
         }
-        if (body != null && Objects.equals(ContentType, "JSON")) {
-            return JSON.parseObject(body).get(key);
-        }
-        return null;
+
+        return args;
     }
 
-    public Object resolve(String key, Class<?> fieldType, int parameterLength) {
-        if (fieldType.isArray()) {
-            //TODO 暂时不实现
-        }
-        if (Map.class.isAssignableFrom(fieldType)) {
+
+    public <T> Object resolve(String key, Class<T> fieldType, int parameterLength) {
+        if (Objects.equals(ContentType, "JSON")) {
+            ConfigReader reader = new ConfigReader(body);
             if (parameterLength == 1) {
-                return Objects.isNull(body) ? pathParameters : JSON.parseObject(body, Map.class);
-            } else {
-                return Objects.isNull(body) ? pathParameters.get(key) : JSON.parseObject(body, Map.class).get(key);
+                if (fieldType.isArray()) {
+                    String[] res = reader.readArray();
+                    return getArray(fieldType, res);
+                }
+                if (Map.class.isAssignableFrom(fieldType)) {
+                    return reader.readMap();
+                }
+                if (Collection.class.isAssignableFrom(fieldType)) {
+                }
             }
-        }
-        if (Collection.class.isAssignableFrom(fieldType)) {
-            if (parameterLength == 1) {
-                return Objects.isNull(body) ? pathParameters.get(key) : JSON.parseObject(body, Collection.class);
-            } else {
-                return Objects.isNull(body) ? pathParameters.get(key) : JSON.parseObject(body, Map.class).get(key);
+            if (fieldType.isArray()) {
+                try {
+                    String[] res = reader.readArray();
+                    return getArray(fieldType, res);
+                } catch (Exception ignore) {
+                    reader.reset();
+                    return getArray(fieldType, (String[]) reader.readMap().get(key));
+                }
             }
-        }
-        if (isPrimitive(fieldType)) {
-            String o = (String) get(key);
-            if (o != null) {
-                if (Integer.class.equals(fieldType) || int.class.equals(fieldType)) {
-                    return Integer.parseInt(o);
-                }
-                if (Byte.class.equals(fieldType) || byte.class.equals(fieldType)) {
-                    return Byte.valueOf(o);
-                }
-                if (Character.class.equals(fieldType) || char.class.equals(fieldType)) {
-                    return o.charAt(0);
-                }
-                if (Double.class.equals(fieldType) || double.class.equals(fieldType)) {
-                    return Double.valueOf(o);
-                }
-                if (Float.class.equals(fieldType) || float.class.equals(fieldType)) {
-                    return Float.valueOf(o);
-                }
-                if (Boolean.class.equals(fieldType) || boolean.class.equals(fieldType)) {
-                    return Boolean.valueOf(o);
-                }
-                if (Long.class.equals(fieldType) || long.class.equals(fieldType)) {
-                    return Long.valueOf(o);
-                }
-                if (Short.class.equals(fieldType) || short.class.equals(fieldType)) {
-                    return Short.valueOf(o);
-                }
-                return null;
+            if (Collection.class.isAssignableFrom(fieldType)) {
+                return JSON.parseObject(body, fieldType);
+            }
+            Map result = new ConfigReader(body).readMap();
+            if (Map.class.isAssignableFrom(fieldType)) {
+                return result;
+            } else if (result.get(key) == null) ;
+            else if (primitiveWrapperTypeMap.containsKey(fieldType) || fieldType.isPrimitive()) {
+                return TypeConverter.primitiveConversion((String) result.get(key), fieldType);
+            } else {
+                return JSON.parseObject(body, fieldType);
             }
         } else {
-            if (parameterLength == 1) {
-                return JSON.parseObject(body, fieldType);
-            } else {
-                return JSON.parseObject(JSON.toJSONString(JSON.parseObject(body).get(key)), fieldType);
+            if (fieldType.isAssignableFrom(pathParameters.getString(key).getClass()))
+                return pathParameters.getString(key);
+            if (Map.class.isAssignableFrom(fieldType)) {
+                return pathParameters;
+            } else if (
+                    primitiveWrapperTypeMap.containsKey(fieldType) || fieldType.isPrimitive()
+            ) {
+                return TypeConverter.typeConversion(pathParameters.getString(key), fieldType);
             }
-
         }
         return null;
     }
 
+    private <T> T getArray(Class<T> fieldType, String[] res) {
+        Object array = Array.newInstance(fieldType.componentType(), res.length);
+        for (int i = 0; i < res.length; i++) {
+            String re = res[i];
+            Array.set(array, i, TypeConverter.typeConversion(re, fieldType.componentType()));
+        }
+        return (T) array;
+    }
+
+    private MessageReader.lexec getLexec(String key) {
+        return bodyLexec.get(key);
+    }
 }
