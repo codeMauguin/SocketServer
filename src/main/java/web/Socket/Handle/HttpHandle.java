@@ -7,7 +7,6 @@ import web.Socket.WebSockServer;
 import web.http.Filter.FilterRecord;
 import web.http.HttpRequest;
 import web.http.HttpResponse;
-import web.http.Imlp.HttpServletRequest;
 import web.http.Imlp.HttpServletResponse;
 import web.http.Libary.*;
 import web.server.WebServerContext;
@@ -16,7 +15,6 @@ import web.util.Assert;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Parameter;
-import java.lang.reflect.ParameterizedType;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.regex.Pattern;
@@ -155,26 +153,6 @@ public abstract class HttpHandle implements WebSockServer {
             }
         }
         response.setContentType("application/json;charset=utf-8;");
-    }
-
-    protected Object[] resolveMethodArgs(Parameter[] parameters, String[] paramNames, MessageUtil util, int index,
-                                         HttpServletRequest request, HttpServletResponse response) {
-        Object[] args = new Object[parameters.length];
-        for (int i = 0, paramNamesLength = paramNames.length; i < paramNamesLength; i++) {
-            String paramName = paramNames[i];
-            Parameter parameter = parameters[i];
-            ParameterizedType parameterizedType = (ParameterizedType) parameter.getParameterizedType();
-            System.out.println(Arrays.toString(parameterizedType.getActualTypeArguments()));
-            Class<?> type = parameter.getType();
-            if (type == HttpRequest.class || type == HttpServletRequest.class) {
-                args[i] = request;
-            } else if (type == HttpResponse.class || type == HttpServletResponse.class) {
-                args[i] = response;
-            } else {
-                args[i] = util.resolve(paramName, type, index);
-            }
-        }
-        return args;
     }
 
     protected void init(HttpRequest request, HttpResponse response, Reader reader) {

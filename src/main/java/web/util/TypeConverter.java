@@ -60,18 +60,6 @@ public class TypeConverter {
     }
 
     @SuppressWarnings("all")
-    public static <T> T primitiveConversion(String message, Class<T> destType) {
-        return (T) typeConversionAdapter.getOrDefault(destType,
-                typeConversionAdapter.get(primitiveWrapperTypeMap.get(destType))).apply(message);
-    }
-
-    public static <T> T typeConversion(String message, Class<T> destType) {
-        if (isPrimitive(destType))
-            return primitiveConversion(message, destType);
-        return null;
-    }
-
-    @SuppressWarnings("all")
     public static <T> T typeBeanConversion(Class<T> type, MessageReader.lexec exec) {
         MessageReader reader = new MessageReader(exec.readAllBytes());
         Map<String, MessageReader.lexec> read = reader.read();
