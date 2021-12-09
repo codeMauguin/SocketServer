@@ -18,7 +18,7 @@ import java.util.Set;
  * @Date: created in 10:14 上午 2021/12/2
  * @Modified By:
  */
-public class ChildBeanDefinition<T> implements BeanDefinition<T> {
+public class ChildBeanDefinition<T> implements BeanDefinition {
     private final FactoryBean factoryBean;
     private final String errorInfo = """
 
@@ -62,14 +62,16 @@ public class ChildBeanDefinition<T> implements BeanDefinition<T> {
                 }
                 depends.put(field, definition);
             } else {
-                Logger.warn(errorInfo, MessageFormat.format("The dependencies of some of the beans in the application context form a cycle:\n" +
-                                "\n" +
-                                "   services defined in file [{0}]\n" +
-                                "┌─────┐\n" +
-                                "|  {1}\n" +
-                                "↑     ↓\n" +
-                                "|  {2} defined in file [{3}]\n" +
-                                "└─────┘\n", target, target.getSimpleName(),
+                Logger.warn(errorInfo, MessageFormat.format("""
+                                The dependencies of some of the beans in the application context form a cycle:
+
+                                   services defined in file [{0}]
+                                ┌─────┐
+                                |  {1}
+                                ↑     ↓
+                                |  {2} defined in file [{3}]
+                                └─────┘
+                                """, target, target.getSimpleName(),
                         field.getType().getSimpleName(), field.getType()));
 
 

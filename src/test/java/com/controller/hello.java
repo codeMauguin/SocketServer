@@ -6,17 +6,12 @@ import web.http.Controller.annotation.PostMapper;
 import web.http.annotation.Component;
 import web.http.annotation.Service;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-
 @Component
 class pojo {
     boolean code;
     String msg = "成功获取";
-    Object id;
+    int id;
     String name;
-    List<u> us = Arrays.asList(new u(null), new u(null));
 
     public boolean getCode() {
         return code;
@@ -34,9 +29,6 @@ class pojo {
         return name;
     }
 
-    public List<com.controller.u> getUs() {
-        return us;
-    }
 
 }
 
@@ -76,9 +68,7 @@ public class hello {
     }
 
     @PostMapper("/api")
-    pojo hello(List<Integer> test, Map<String, Integer> table) {
-        System.out.println("test = " + test);
-        System.out.println("table = " + table);
+    pojo hello(pojo pojo) {
         return pojo;
     }
 }

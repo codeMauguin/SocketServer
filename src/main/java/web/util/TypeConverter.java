@@ -2,14 +2,13 @@ package web.util;
 
 import com.alibaba.fastjson.JSONException;
 
-import java.lang.reflect.Parameter;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
-import java.lang.reflect.WildcardType;
+import java.lang.reflect.*;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.Function;
+
+import static java.util.Locale.ENGLISH;
 
 /**
  * @author 陈浩
@@ -73,10 +72,77 @@ public class TypeConverter {
     }
 
     @SuppressWarnings("all")
-    public static <T> T typeCollectionConversion(Parameter parameter, MessageReader.lexec exec) {
-        ParameterizedType parameterizedType = (ParameterizedType) parameter.getParameterizedType();
-        Class<?> genericType = (Class<?>) parameterizedType.getActualTypeArguments()[0];
-        Collection collection = createCollection(parameterizedType);
+    public static <T> T typeBeanConversion(Class<T> type, MessageReader.lexec exec) {
+        MessageReader reader = new MessageReader(exec.readAllBytes());
+        Map<String, MessageReader.lexec> read = reader.read();
+        T o = null;
+        try {
+            Constructor<T> declaredConstructor = type.getDeclaredConstructor();
+            declaredConstructor.setAccessible(true);
+            o = declaredConstructor.newInstance();
+            for (Field declaredField : type.getDeclaredFields()) {
+                declaredField.getGenericType();
+                Object fieldBean = typeConversion(declaredField, read.get(declaredField.getName()));
+                try {
+                    Method method =
+                            type.getMethod("set" + declaredField.getName().substring(0, 1).toUpperCase(ENGLISH) + declaredField.getName().substring(1),
+                                    declaredField.getType());
+                    method.setAccessible(true);
+                    method.invoke(o, fieldBean);
+                } catch (Exception ignore) {
+                    declaredField.setAccessible(true);
+                    declaredField.set(o, fieldBean);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return o;
+    }
+
+
+    @SuppressWarnings("all")
+    public static <T> T typeBeanConversion(Parameter parameter, MessageReader.lexec exec) {
+        Class<T> type = (Class<T>) parameter.getType();
+        return typeBeanConversion(type, exec);
+    }
+
+    @SuppressWarnings("all")
+    private static <T> T typeConversion(Field declaredField, MessageReader.lexec lexec) {
+        if (isPrimitive(declaredField.getType())) {
+            return (T) typePrimitiveConversion(lexec, declaredField.getType());
+        }
+        if (Collection.class.isAssignableFrom(declaredField.getType())) {
+            Type genericType = declaredField.getGenericType();
+            if (genericType != null && genericType instanceof ParameterizedType) {
+                return typeCollectionConversion((ParameterizedType) genericType, lexec);
+            } else {
+                return typeCollectionConversion((ParameterizedType) null, lexec);
+            }
+        }
+        if (Map.class.isAssignableFrom(declaredField.getType())) {
+            Type genericType = declaredField.getGenericType();
+            return typeMapConversion((ParameterizedType) genericType, lexec);
+        }
+        return (T) typeBeanConversion(declaredField.getType(), lexec);
+    }
+
+    @SuppressWarnings("all")
+    public static <T> T typeArrayConversion(Parameter parameter, MessageReader.lexec exec) {
+        List<MessageReader.lexec> lexecs = MessageReader.readList(exec);
+        Object array = Array.newInstance(parameter.getType().componentType(), lexecs.size());
+        for (int i = 0; i < lexecs.size(); i++) {
+            MessageReader.lexec lexec = lexecs.get(i);
+            Array.set(array, i, typePrimitiveConversion(lexec, parameter.getType().componentType()));
+        }
+        return (T) array;
+    }
+
+    @SuppressWarnings("all")
+    private static <T> T typeCollectionConversion(ParameterizedType type, MessageReader.lexec exec) {
+        Collection collection = createCollection(type);
+        Type actualTypeArgument = type.getActualTypeArguments()[0];
+        Class<?> genericType = type == null ? Object.class : (Class<?>) type.getActualTypeArguments()[0];
         List<MessageReader.lexec> lexecs = MessageReader.readList(exec);
         for (MessageReader.lexec lexec : lexecs) {
             collection.add(
@@ -86,8 +152,14 @@ public class TypeConverter {
     }
 
     @SuppressWarnings("all")
-    public static <T> T typeMapConversion(Parameter parameter, MessageReader.lexec exec) {
+    public static <T> T typeCollectionConversion(Parameter parameter, MessageReader.lexec exec) {
         ParameterizedType parameterizedType = (ParameterizedType) parameter.getParameterizedType();
+        return typeCollectionConversion(parameterizedType, exec);
+
+    }
+
+    @SuppressWarnings("all")
+    private static <T> T typeMapConversion(ParameterizedType parameterizedType, MessageReader.lexec exec) {
         Class<?> keyType = (Class<?>) parameterizedType.getActualTypeArguments()[0];
         Class<?> valueType = (Class<?>) parameterizedType.getActualTypeArguments()[1];
         Map map = new HashMap();
@@ -100,15 +172,30 @@ public class TypeConverter {
         return (T) map;
     }
 
+    @SuppressWarnings("all")
+    public static <T> T typeMapConversion(Parameter parameter, MessageReader.lexec exec) {
+        ParameterizedType parameterizedType = (ParameterizedType) parameter.getParameterizedType();
+        return typeMapConversion(parameterizedType, exec);
+    }
 
+
+    /**
+     * 不允许List,Map对象。因为泛型检测不到，目前知识不够
+     *
+     * @param lexec       解析器
+     * @param genericType 目标类型
+     * @param <T>         返回类型
+     * @return 实例对象
+     */
     private static <T> T typeConversion(MessageReader.lexec lexec, Class<T> genericType) {
         if (isPrimitive(genericType)) {
             return typePrimitiveConversion(lexec, genericType);
         } else {
-            return null;
+            return typeBeanConversion(genericType, lexec);
         }
     }
 
+    @SuppressWarnings("all")
     public static <T> T typePrimitiveConversion(MessageReader.lexec lexec, Class<T> type) {
         Class<?> destType;
         if (type.isPrimitive())

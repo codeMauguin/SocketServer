@@ -12,7 +12,6 @@ import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -25,29 +24,24 @@ import java.util.concurrent.ThreadPoolExecutor;
  */
 public class WriteHandle implements EventHandle<SelectionKey> {
     private final ThreadPoolExecutor executor;
-    private final Selector selector;
-
-    public WriteHandle(ThreadPoolExecutor executor, Selector selector) {
+    public WriteHandle(ThreadPoolExecutor executor) {
         this.executor = executor;
-        this.selector = selector;
     }
 
     @Override
     public void handle(SelectionKey key) {
-        executor.submit(new Write(key, selector));
+        executor.submit(new Write(key));
     }
 
     private static final class Write extends HttpHandle {
         private final SelectionKey key;
-        private final Selector selector;
         private HttpServletResponse response;
         private ByteArrayOutputStream responseOutputStream;
         private ByteBuffer buffer;
 
-        public Write(SelectionKey key, Selector selector) {
+        public Write(SelectionKey key) {
             super(null);
             this.key = key;
-            this.selector = selector;
         }
 
 
@@ -92,8 +86,8 @@ public class WriteHandle implements EventHandle<SelectionKey> {
             SelectableChannel channel = key.channel();
             try {
                 channel.configureBlocking(false);
-                channel.register(selector, SelectionKey.OP_READ);
-                selector.wakeup();
+                channel.register(key.selector(), SelectionKey.OP_READ);
+                key.selector().wakeup();
             } catch (IOException e) {
                 e.printStackTrace();
             }

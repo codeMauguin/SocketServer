@@ -8,7 +8,7 @@ import java.util.List;
  * @Date: created in 10:08 上午 2021/12/2
  * @Modified By:
  */
-public interface BeanDefinition<T> {
+public interface BeanDefinition {
     void resolvableConstructorDependency() throws NoSuchMethodException;
 
     void resolvableFieldDependency(List<BeanDefinition> definitions);

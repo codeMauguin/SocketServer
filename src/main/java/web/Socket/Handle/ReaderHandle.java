@@ -19,7 +19,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -34,32 +33,27 @@ public class ReaderHandle implements EventHandle<SelectionKey> {
     private final ThreadPoolExecutor executor;
     private final WebServerContext context;
 
-    private final Selector selector;
-
-    public ReaderHandle(ThreadPoolExecutor executor, WebServerContext context, Selector selector) {
+    public ReaderHandle(ThreadPoolExecutor executor, WebServerContext context) {
         this.executor = executor;
         this.context = context;
-        this.selector = selector;
     }
 
     @Override
     public void handle(SelectionKey key) {
-        executor.submit(new Readers(context, key, selector));
+        executor.submit(new Readers(context, key));
     }
 
     private static final class Readers extends HttpHandle {
         private final SelectionKey key;
-        private final Selector selector;
         private HttpHeaderInfo headerInfo;
         private ReaderInputStream inputStream;
 
         private HttpInfo info;
         private SocketChannel client;
 
-        public Readers(WebServerContext context, SelectionKey key, Selector selector) {
+        public Readers(WebServerContext context, SelectionKey key) {
             super(context);
             this.key = key;
-            this.selector = selector;
         }
 
         @Override
@@ -125,8 +119,8 @@ public class ReaderHandle implements EventHandle<SelectionKey> {
             SelectableChannel channel = key.channel();
             try {
                 channel.configureBlocking(false);
-                channel.register(selector, SelectionKey.OP_WRITE, response);
-                selector.wakeup();
+                channel.register(key.selector(), SelectionKey.OP_WRITE, response);
+                key.selector().wakeup();
             } catch (IOException e) {
                 e.printStackTrace();
             }

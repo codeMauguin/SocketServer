@@ -35,13 +35,13 @@ public class EventMonitoring implements WebSockServer {
         this.context = context;
         this.executor = executor;
     }
-    private int index = 0;
+
     @Override
     public void start() {
         initEventHandle();
         try {
             while (start) {
-                int size = selector.select();
+                int size = selector.select(10);
                 if (size > 0) {
                     Set<SelectionKey> selectionKeys = selector.selectedKeys();
                     Iterator<SelectionKey> iterator = selectionKeys.iterator();
@@ -55,9 +55,10 @@ public class EventMonitoring implements WebSockServer {
                                 key.cancel();
                                 reader.handle(key);
                             } else if (key.isWritable()) {
-                                System.out.println(++index);
                                 key.cancel();
                                 write.handle(key);
+                            } else if (key.isConnectable()) {
+                                System.out.println("key = " + key);
                             }
                         } catch (Exception e) {
                             key.cancel();
@@ -74,8 +75,8 @@ public class EventMonitoring implements WebSockServer {
     }
 
     private void initEventHandle() {
-        reader = new ReaderHandle(executor, context, selector);
-        write = new WriteHandle(executor, selector);
+        reader = new ReaderHandle(executor, context);
+        write = new WriteHandle(executor);
     }
 
     @Override

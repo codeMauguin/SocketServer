@@ -47,7 +47,7 @@ public class DefaultSingletonBeanRegistry {
 
 
     public <T> T getBean(String var0) {
-        BeanDefinition<?> first = findFirst(definitionQueue,
+        BeanDefinition first = findFirst(definitionQueue,
                 beanDefinition -> beanDefinition.getBeanFactory().getBeanName().equals(var0));
         try {
             return Objects.nonNull(first) ? (T) checkScope(first).getBeanFactory().getObject() : null;
@@ -56,7 +56,7 @@ public class DefaultSingletonBeanRegistry {
         return null;
     }
 
-    private BeanDefinition<?> checkScope(BeanDefinition<?> definition) throws Exception {
+    private BeanDefinition checkScope(BeanDefinition definition) throws Exception {
         BeanFactory beanFactory = definition.getBeanFactory();
         if (!beanFactory.isScope()) {
             if (!beanFactory.isDefault()) {
@@ -72,7 +72,7 @@ public class DefaultSingletonBeanRegistry {
         return definition;
     }
 
-    private void populate(BeanDefinition<?> definition) {
+    private void populate(BeanDefinition definition) {
         Map<Field, BeanDefinition> definitions = definition.getBeanFactory().getDefinitions();
         for (Map.Entry<Field, BeanDefinition> fieldBeanDefinitionEntry : definitions.entrySet()) {
             Field field = fieldBeanDefinitionEntry.getKey();
@@ -97,7 +97,7 @@ public class DefaultSingletonBeanRegistry {
     }
 
     public <T> T getBean(Class<T> var0) {
-        BeanDefinition<?> first = findFirst(definitionQueue,
+        BeanDefinition first = findFirst(definitionQueue,
                 beanDefinition -> beanDefinition.getBeanFactory().getType().equals(var0));
         try {
             return Objects.nonNull(first) ? (T) checkScope(first).getBeanFactory().getObject() : null;
@@ -116,7 +116,7 @@ public class DefaultSingletonBeanRegistry {
         return collection.stream().filter(predicate).findFirst().orElse(null);
     }
 
-    private void createBeanInstance(BeanDefinition<?> definition) throws Exception {
+    private void createBeanInstance(BeanDefinition definition) throws Exception {
         if (definition.getBeanFactory().getObject() == null) {
             BeanFactory beanFactory = definition.getBeanFactory();
             if (beanFactory.isDefault()) {
@@ -129,12 +129,13 @@ public class DefaultSingletonBeanRegistry {
                     BeanDefinition first = findFirst(definitionQueue,
                             definitions -> definitions.getBeanFactory().getType().equals(constructorParameter));
                     if (first.getBeanFactory().check(beanFactory.getType())) {
-                        Logger.error(errorInfo, MessageFormat.format("services defined in file [{0}]\n" +
-                                "┌─────┐\n" +
-                                "|  {1}\n" +
-                                "↑     ↓\n" +
-                                "|  {2} defined in file [{3}]\n" +
-                                "└─────┘", beanFactory.getType(), beanFactory.getBeanName(), constructorParameter.getSimpleName(), constructorParameter));
+                        Logger.error(errorInfo, MessageFormat.format("""
+                                services defined in file [{0}]
+                                ┌─────┐
+                                |  {1}
+                                ↑     ↓
+                                |  {2} defined in file [{3}]
+                                └─────┘""", beanFactory.getType(), beanFactory.getBeanName(), constructorParameter.getSimpleName(), constructorParameter));
                         System.exit(0);
                     }
 

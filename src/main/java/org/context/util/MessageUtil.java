@@ -83,23 +83,58 @@ public class MessageUtil {
         //只从body读数据
         for (int i = 0, parametersLength = parameters.length; i < parametersLength; i++) {
             Parameter parameter = parameters[i];
+            if (HttpRequest.class.isAssignableFrom(parameter.getType())) {
+                Array.set(args, i, request);
+                continue;
+            }
+            if (HttpResponse.class.isAssignableFrom(parameter.getType())) {
+                Array.set(args, i, response);
+                continue;
+            }
             MessageReader.lexec lexec = getLexec(parameter.getName());
-            if (TypeConverter.isPrimitive(parameter.getType())) {
-                Object arg = TypeConverter.typePrimitiveConversion(lexec, parameter.getType());
+            if (lexec != null) {
+                if (TypeConverter.isPrimitive(parameter.getType())) {
+                    Object arg = TypeConverter.typePrimitiveConversion(lexec, parameter.getType());
+                    Array.set(args, i, arg);
+                    continue;
+                }
+                if (parameter.getType().isArray()) {
+                    Object arg = TypeConverter.typeArrayConversion(parameter, lexec);
+                    Array.set(args, i, arg);
+                    continue;
+                }
+                if (Collection.class.isAssignableFrom(parameter.getType())) {
+                    Object arg = TypeConverter.typeCollectionConversion(parameter, lexec);
+                    Array.set(args, i, arg);
+                    continue;
+                }
+                if (Map.class.isAssignableFrom(parameter.getType())) {
+                    Object arg = TypeConverter.typeMapConversion(parameter, lexec);
+                    Array.set(args, i, arg);
+                    continue;
+                }
+                Object arg = TypeConverter.typeBeanConversion(parameter, lexec);
                 Array.set(args, i, arg);
-                continue;
-            }
-            if (Collection.class.isAssignableFrom(parameter.getType())) {
-                Object arg = TypeConverter.typeCollectionConversion(parameter, lexec);
-                Array.set(args, i, arg);
-                continue;
-            }
-            if (Map.class.isAssignableFrom(parameter.getType())) {
-                Object arg = TypeConverter.typeMapConversion(parameter, lexec);
+            } else {
+                if (TypeConverter.isPrimitive(parameter.getType())) {
+                    Object arg = TypeConverter.typePrimitiveConversion(new MessageReader.lexec(body), parameter.getType());
+                    Array.set(args, i, arg);
+                    continue;
+                }
+                if (Map.class.isAssignableFrom(parameter.getType())) {
+                    Object arg = TypeConverter.typeMapConversion(parameter, new MessageReader.lexec(body));
+                    Array.set(args, i, arg);
+                    continue;
+                }
+                if (Collection.class.isAssignableFrom(parameter.getType())) {
+                    Object arg = TypeConverter.typeCollectionConversion(parameter, new MessageReader.lexec(body));
+                    Array.set(args, i, arg);
+                    continue;
+                }
+                Object arg = TypeConverter.typeBeanConversion(parameter, new MessageReader.lexec(body));
                 Array.set(args, i, arg);
             }
         }
-
         return args;
     }
 
