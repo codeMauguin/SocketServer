@@ -21,7 +21,7 @@ public class WebServerContext {
     private final long start;
     private Set<FilterRecord> filterRecords;
 
-    private String[] origins = new String[]{"http://127.0.0.1:5500"};
+    private String[] origins = new String[0];
 
     private int timeout = 3000;
     private DefaultSingletonBeanRegistry beanPools;

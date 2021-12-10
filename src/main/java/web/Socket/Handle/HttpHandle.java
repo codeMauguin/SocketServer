@@ -15,7 +15,10 @@ import web.util.Assert;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Parameter;
-import java.util.*;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.regex.Pattern;
 
@@ -132,10 +135,7 @@ public abstract class HttpHandle implements WebSockServer {
             ) {
                 Parameter[] parameters = method.getParameters();
                 Object[] args;
-                String[] paramNames = method.getParamNames();
-                int index =
-                        parameters.length - Math.toIntExact(Arrays.stream(parameters).filter(var -> HttpRequest.class.isAssignableFrom(var.getType()) || HttpResponse.class.isAssignableFrom(var.getType())).count());
-//                args = resolveMethodArgs(parameters, paramNames, util, index, (HttpServletRequest) request, (HttpServletResponse) response);
+                //                args = resolveMethodArgs(parameters, paramNames, util, index, (HttpServletRequest) request, (HttpServletResponse) response);
                 args = util.resolve(parameters, request, response);
                 method.getMethod().setAccessible(true);
                 Object invoke = method.getMethod().invoke(controller.getInstance(), args);

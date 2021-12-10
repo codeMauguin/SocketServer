@@ -60,9 +60,7 @@ public class TypeConverter {
     }
 
     @SuppressWarnings("all")
-    public static <T> T typeBeanConversion(Class<T> type, MessageReader.lexec exec) {
-        MessageReader reader = new MessageReader(exec.readAllBytes());
-        Map<String, MessageReader.lexec> read = reader.read();
+    public static <T> T typeBeanConversion(Class<T> type, Map<String, MessageReader.lexec> read) {
         T o = null;
         try {
             Constructor<T> declaredConstructor = type.getDeclaredConstructor();
@@ -88,6 +86,13 @@ public class TypeConverter {
         return o;
     }
 
+    @SuppressWarnings("all")
+    public static <T> T typeBeanConversion(Class<T> type, MessageReader.lexec exec) {
+        MessageReader reader = new MessageReader(exec.readAllBytes());
+        Map<String, MessageReader.lexec> read = reader.read();
+        return typeBeanConversion(type, read);
+    }
+
 
     @SuppressWarnings("all")
     public static <T> T typeBeanConversion(Parameter parameter, MessageReader.lexec exec) {
@@ -110,7 +115,7 @@ public class TypeConverter {
         }
         if (Map.class.isAssignableFrom(declaredField.getType())) {
             Type genericType = declaredField.getGenericType();
-            return typeMapConversion((ParameterizedType) genericType, lexec);
+            return typeMapConversion((ParameterizedType) genericType, new MessageReader(lexec.readAllBytes()).read());
         }
         return (T) typeBeanConversion(declaredField.getType(), lexec);
     }
@@ -147,12 +152,10 @@ public class TypeConverter {
     }
 
     @SuppressWarnings("all")
-    private static <T> T typeMapConversion(ParameterizedType parameterizedType, MessageReader.lexec exec) {
+    private static <T> T typeMapConversion(ParameterizedType parameterizedType, Map<String, MessageReader.lexec> read) {
         Class<?> keyType = (Class<?>) parameterizedType.getActualTypeArguments()[0];
         Class<?> valueType = (Class<?>) parameterizedType.getActualTypeArguments()[1];
         Map map = new HashMap();
-        MessageReader reader = new MessageReader(exec.readAllBytes());
-        Map<String, MessageReader.lexec> read = reader.read();
         for (Map.Entry<String, MessageReader.lexec> entry : read.entrySet()) {
             map.put(typeConversion(new MessageReader.lexec(entry.getKey().getBytes(StandardCharsets.UTF_8)), keyType),
                     typeConversion(entry.getValue(), valueType));
@@ -161,9 +164,9 @@ public class TypeConverter {
     }
 
     @SuppressWarnings("all")
-    public static <T> T typeMapConversion(Parameter parameter, MessageReader.lexec exec) {
+    public static <T> T typeMapConversion(Parameter parameter, Map<String, MessageReader.lexec> read) {
         ParameterizedType parameterizedType = (ParameterizedType) parameter.getParameterizedType();
-        return typeMapConversion(parameterizedType, exec);
+        return typeMapConversion(parameterizedType, read);
     }
 
 

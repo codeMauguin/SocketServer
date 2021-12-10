@@ -22,7 +22,7 @@ public class TypeUtils {
 
     public static Integer caseInteger(MessageReader.lexec lexec) {
         int res = 0;
-        int dest = 0;
+        int dest;
         boolean negative = false;
         byte read = lexec.read();
         if (read == '-') {
@@ -30,6 +30,8 @@ public class TypeUtils {
             read = lexec.read();
         }
         while (true) {
+            if (read == ' ')
+                continue;
             dest = ((char) (read & 0xff)) - 48;
             res -= dest;
             read = lexec.read();
@@ -49,11 +51,77 @@ public class TypeUtils {
     }
 
     public static Float caseFloat(MessageReader.lexec lexec) {
-        return null;
+        float integerPart = 0;
+        float dest;
+        float decimalPart = 0;
+        boolean negative = false;
+        int mode = 0;
+        byte read = lexec.read();
+        int index = 1;
+        if (read == '-') {
+            negative = true;
+            read = lexec.read();
+        }
+        while (read != -1) {
+            if (read == ' ')
+                continue;
+            if (read == '.') {
+                if (mode == 1)
+                    throw new IllegalArgumentException("解析到多个小数点");
+                mode = 1;
+                integerPart = negative ? integerPart : -integerPart;
+                read = lexec.read();
+            }
+            if (mode == 0) {
+                dest = ((char) (read & 0xff)) - 48;
+                integerPart -= dest;
+                read = lexec.read();
+                if (read != -1 & read != '.')
+                    integerPart *= 10;
+            } else {
+                double t = (char) (read & 0xff) - 48;
+                decimalPart += t / (Math.pow(10, index++));
+                read = lexec.read();
+            }
+        }
+        return negative ? (integerPart - decimalPart) : (integerPart + decimalPart);
     }
 
     public static Double caseDouble(MessageReader.lexec lexec) {
-        return null;
+        double integerPart = 0;
+        double dest;
+        double decimalPart = 0;
+        boolean negative = false;
+        int mode = 0;
+        byte read = lexec.read();
+        int index = 1;
+        if (read == '-') {
+            negative = true;
+            read = lexec.read();
+        }
+        while (read != -1) {
+            if (read == ' ')
+                continue;
+            if (read == '.') {
+                if (mode == 1)
+                    throw new IllegalArgumentException("解析到多个小数点");
+                mode = 1;
+                integerPart = negative ? integerPart : -integerPart;
+                read = lexec.read();
+            }
+            if (mode == 0) {
+                dest = ((char) (read & 0xff)) - 48;
+                integerPart -= dest;
+                read = lexec.read();
+                if (read != -1 & read != '.')
+                    integerPart *= 10;
+            } else {
+                double t = (char) (read & 0xff) - 48;
+                decimalPart += t / (Math.pow(10, index++));
+                read = lexec.read();
+            }
+        }
+        return negative ? (integerPart - decimalPart) : (integerPart + decimalPart);
     }
 
     public static Byte caseByte(MessageReader.lexec lexec) {
@@ -61,10 +129,52 @@ public class TypeUtils {
     }
 
     public static Long caseLong(MessageReader.lexec lexec) {
-        return null;
+        Long res = 0L;
+        Long dest = 0L;
+        boolean negative = false;
+        byte read = lexec.read();
+        if (read == '-') {
+            negative = true;
+            read = lexec.read();
+        }
+        while (true) {
+            dest = ((char) (read & 0xff)) - 48L;
+            res -= dest;
+            read = lexec.read();
+            if (read == '-') {
+                throw new IllegalArgumentException("-解析错误");
+            }
+            if (read != -1)
+                res *= 10;
+            else
+                break;
+        }
+        return negative ? res : -res;
     }
 
     public static Short caseShort(MessageReader.lexec lexec) {
-        return null;
+        Short res = 0;
+        Short dest;
+        boolean negative = false;
+        byte read = lexec.read();
+        if (read == '-') {
+            negative = true;
+            read = lexec.read();
+        }
+        while (true) {
+            if (read == ' ')
+                continue;
+            dest = (short) (((char) (read & 0xff)) - 48);
+            res = (short) (res - dest);
+            read = lexec.read();
+            if (read == '-') {
+                throw new IllegalArgumentException("-解析错误");
+            }
+            if (read != -1)
+                res = (short) (res * 10);
+            else
+                break;
+        }
+        return negative ? res : (short) -res;
     }
 }

@@ -1,7 +1,6 @@
 package org.context.util;
 
 import org.mortbay.util.MultiMap;
-import org.mortbay.util.UrlEncoded;
 import web.http.HttpRequest;
 import web.http.HttpResponse;
 import web.util.MessageReader;
@@ -37,7 +36,7 @@ public class MessageUtil {
         primitiveWrapperTypeMap.put(String.class, String.class);
     }
 
-    private final String pathParameter;
+    private final Map<String, MessageReader.lexec> pathParameter;
     private final MultiMap<String> pathParameters = new MultiMap<>();
     private final byte[] body;
     private final String ContentType;
@@ -45,7 +44,10 @@ public class MessageUtil {
     Map<String, MessageReader.lexec> bodyLexec;
 
     public MessageUtil(String pathParameter, byte[] body, String contentType) {
-        this.pathParameter = pathParameter;
+        if (pathParameter != null) {
+            this.pathParameter =
+                    new MessageReader(URLDecoder.decode(pathParameter, StandardCharsets.UTF_8).getBytes(StandardCharsets.UTF_8)).readForm();
+        } else this.pathParameter = null;
         this.body = body;
         ContentType = contentType.trim().isEmpty() ? "FORM" : contentType;
         init();
@@ -56,25 +58,48 @@ public class MessageUtil {
     }
 
     private void init() {
-        if (pathParameter != null && !pathParameter.equals("")) {
-            UrlEncoded.decodeTo(URLDecoder.decode(pathParameter, StandardCharsets.UTF_8), pathParameters, "UTF-8");
-        }
         if (body != null) {
+            MessageReader reader = new MessageReader(body);
             switch (ContentType) {
                 case "JSON" -> {
-                    MessageReader reader = new MessageReader(body);
-
                     bodyLexec = reader.read();
                 }
                 case "FORM" -> {
-                    UrlEncoded.decodeTo(URLDecoder.decode(new String(body, StandardCharsets.UTF_8), StandardCharsets.UTF_8)
-                            , pathParameters,
-                            "UTF-8");
+                    Map<String, MessageReader.lexec> bodyLexec = reader.readForm();
+                    this.bodyLexec = bodyLexec;
                 }
             }
         }
     }
 
+    private Object formResolve(Map<String, MessageReader.lexec> read, Parameter parameter) {
+        MessageReader.lexec lexec = read.get(parameter.getName());
+        if (lexec != null) {
+            if (isPrimitive(parameter.getType())) {
+                return TypeConverter.typePrimitiveConversion(lexec, parameter.getType());
+            }
+            //TODO 数组类型
+            if (parameter.getType().isArray()) {
+                return TypeConverter.typeArrayConversion(parameter, lexec);
+            }
+
+            if (Collection.class.isAssignableFrom(parameter.getType())) {
+                return TypeConverter.typeCollectionConversion(parameter, lexec);
+            }
+            if (Map.class.isAssignableFrom(parameter.getType())) {
+                return TypeConverter.typeMapConversion(parameter, pathParameter);
+            }
+            return TypeConverter.typeBeanConversion(parameter.getType(), pathParameter);
+        }
+        return null;
+    }
+
+    /**
+     * @param parameters 方法参数
+     * @param request    请求
+     * @param response   响应
+     * @return
+     */
     public Object[] resolve(Parameter[] parameters, HttpRequest request, HttpResponse response) {
         Object[] args = new Object[parameters.length];
         //只从body读数据
@@ -88,49 +113,68 @@ public class MessageUtil {
                 Array.set(args, i, response);
                 continue;
             }
-            MessageReader.lexec lexec = getLexec(parameter.getName());
-            if (lexec != null) {
-                if (TypeConverter.isPrimitive(parameter.getType())) {
-                    Object arg = TypeConverter.typePrimitiveConversion(lexec, parameter.getType());
+            if (pathParameter != null) {
+                Object arg = formResolve(pathParameter, parameter);
+                if (arg != null) {
                     Array.set(args, i, arg);
                     continue;
                 }
-                if (parameter.getType().isArray()) {
-                    Object arg = TypeConverter.typeArrayConversion(parameter, lexec);
-                    Array.set(args, i, arg);
-                    continue;
-                }
-                if (Collection.class.isAssignableFrom(parameter.getType())) {
-                    Object arg = TypeConverter.typeCollectionConversion(parameter, lexec);
-                    Array.set(args, i, arg);
-                    continue;
-                }
-                if (Map.class.isAssignableFrom(parameter.getType())) {
-                    Object arg = TypeConverter.typeMapConversion(parameter, lexec);
-                    Array.set(args, i, arg);
-                    continue;
-                }
-                Object arg = TypeConverter.typeBeanConversion(parameter, lexec);
-                Array.set(args, i, arg);
-            } else {
-                if (TypeConverter.isPrimitive(parameter.getType())) {
-                    Object arg = TypeConverter.typePrimitiveConversion(new MessageReader.lexec(body), parameter.getType());
-                    Array.set(args, i, arg);
-                    continue;
-                }
-                if (Map.class.isAssignableFrom(parameter.getType())) {
-                    Object arg = TypeConverter.typeMapConversion(parameter, new MessageReader.lexec(body));
-                    Array.set(args, i, arg);
-                    continue;
-                }
-                if (Collection.class.isAssignableFrom(parameter.getType())) {
-                    Object arg = TypeConverter.typeCollectionConversion(parameter, new MessageReader.lexec(body));
-                    Array.set(args, i, arg);
-                    continue;
-                }
-                Object arg = TypeConverter.typeBeanConversion(parameter, new MessageReader.lexec(body));
-                Array.set(args, i, arg);
             }
+            if (ContentType.equals("FORM")) {
+                Object arg = formResolve(bodyLexec, parameter);
+                if (arg != null) {
+                    Array.set(args, i, arg);
+                    continue;
+                }
+            } else {
+
+                MessageReader.lexec lexec = getLexec(parameter.getName());
+                if (lexec != null) {
+                    if (TypeConverter.isPrimitive(parameter.getType())) {
+                        Object arg = TypeConverter.typePrimitiveConversion(lexec, parameter.getType());
+                        Array.set(args, i, arg);
+                        continue;
+                    }
+                    if (parameter.getType().isArray()) {
+                        Object arg = TypeConverter.typeArrayConversion(parameter, lexec);
+                        Array.set(args, i, arg);
+                        continue;
+                    }
+                    if (Collection.class.isAssignableFrom(parameter.getType())) {
+                        Object arg = TypeConverter.typeCollectionConversion(parameter, lexec);
+                        Array.set(args, i, arg);
+                        continue;
+                    }
+                    if (Map.class.isAssignableFrom(parameter.getType())) {
+                        Object arg = TypeConverter.typeMapConversion(parameter, new MessageReader(lexec.readAllBytes()).read());
+                        Array.set(args, i, arg);
+                        continue;
+                    }
+                    Object arg = TypeConverter.typeBeanConversion(parameter, lexec);
+                    Array.set(args, i, arg);
+                    continue;
+                } else {
+                    if (TypeConverter.isPrimitive(parameter.getType())) {
+                        Object arg = TypeConverter.typePrimitiveConversion(new MessageReader.lexec(body), parameter.getType());
+                        Array.set(args, i, arg);
+                        continue;
+                    }
+                    if (Map.class.isAssignableFrom(parameter.getType())) {
+                        Object arg = TypeConverter.typeMapConversion(parameter, bodyLexec);
+                        Array.set(args, i, arg);
+                        continue;
+                    }
+                    if (Collection.class.isAssignableFrom(parameter.getType())) {
+                        Object arg = TypeConverter.typeCollectionConversion(parameter, new MessageReader.lexec(body));
+                        Array.set(args, i, arg);
+                        continue;
+                    }
+                    Object arg = TypeConverter.typeBeanConversion(parameter, new MessageReader.lexec(body));
+                    Array.set(args, i, arg);
+                    continue;
+                }
+            }
+            Array.set(args, i, null);
         }
         return args;
     }

@@ -42,6 +42,7 @@ public class WebWorkServer implements WebServer {
             exit(0);
         } else {
             AtomicInteger port = new AtomicInteger(80);
+            List<String> origins = new Vector<>();
             //Mac 默认的host运行没有权限
             AtomicReference<InetAddress> host = new AtomicReference<>(InetAddress.getByName("0.0.0.0"));
             for (String arg : args) {
@@ -58,10 +59,14 @@ public class WebWorkServer implements WebServer {
                         case "path" -> {
                             path.add(var1);
                         }
+                        case "origin" -> {
+                            origins.add(var1);
+                        }
                     }
                 });
             }
             context = initContext(port.get(), host.get());
+            context.setOrigins(origins.toArray(String[]::new));
         }
         initReflections(path.toArray(String[]::new));
         return this;

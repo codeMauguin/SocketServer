@@ -1,9 +1,6 @@
 package web.util;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * @author 陈浩
@@ -31,7 +28,6 @@ public class MessageReader {
         limit = input.length;
     }
 
-
     public static List<lexec> readList(lexec lexec) {
         List<lexec> result = new ArrayList<>();
         int start = 0;
@@ -45,6 +41,10 @@ public class MessageReader {
                 case '"' -> {
                 }
                 case -1 -> {
+                    if (pos > prePos) {
+                        MessageReader.lexec exe = new lexec(lexec.subArray(prePos, pos));
+                        result.add(exe);
+                    }
                     break P1;
                 }
                 case preBank -> {
@@ -69,6 +69,48 @@ public class MessageReader {
             pos++;
         }
         return result;
+    }
+
+    public Map<String, lexec> readForm() {
+        Map<String, lexec> result = new HashMap<>();
+        StringBuilder key = new StringBuilder();
+        P1:
+        while (true) {
+            char c = get();
+            switch (c) {
+                case '\"' -> {
+                }
+                case '&' -> {
+                    key.setLength(0);
+                }
+                case '=' -> {
+                    int start = pos;
+                    find();
+                    byte[] buffer = new byte[pos - start - 1];
+                    System.arraycopy(input, start, buffer, 0, buffer.length);
+                    result.put(key.toString(), new lexec(buffer));
+                    key.setLength(0);
+                }
+                case EDF -> {
+                    break P1;
+                }
+                default -> key.append(c);
+            }
+        }
+        return result;
+    }
+
+    private void find() {
+        while (true) {
+            char c = get();
+            if (c == '&') {
+                break;
+            }
+            if (c == EDF) {
+                pos++;
+                break;
+            }
+        }
     }
 
     public char get() {
@@ -138,7 +180,7 @@ public class MessageReader {
                 } else if (c == EDF) {
                     throw new IllegalArgumentException("没有闭合这个value");
                 }
-            } else if (c == comma) break;
+            } else if (c == comma || c == end) break;
             else if (c == EDF) {
                 return ++pos;
             }

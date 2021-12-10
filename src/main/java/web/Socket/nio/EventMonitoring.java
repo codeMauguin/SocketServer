@@ -1,8 +1,7 @@
 package web.Socket.nio;
 
 import web.Socket.Handle.EventHandle;
-import web.Socket.Handle.ReaderHandle;
-import web.Socket.Handle.WriteHandle;
+import web.Socket.Handle.NioHttpHandle;
 import web.Socket.WebSockServer;
 import web.server.WebServerContext;
 
@@ -38,7 +37,6 @@ public class EventMonitoring implements WebSockServer {
 
     @Override
     public void start() {
-        initEventHandle();
         try {
             while (start) {
                 int size = selector.select(10);
@@ -51,12 +49,9 @@ public class EventMonitoring implements WebSockServer {
                             iterator.remove();
                             if (key.isAcceptable()) {
                                 accept(key, selector);
-                            } else if (key.isReadable()) {
+                            } else if (key.isReadable() & key.isWritable()) {
                                 key.cancel();
-                                reader.handle(key);
-                            } else if (key.isWritable()) {
-                                key.cancel();
-                                write.handle(key);
+                                executor.submit(new NioHttpHandle(context, key));
                             } else if (key.isConnectable()) {
                                 System.out.println("key = " + key);
                             }
@@ -74,11 +69,6 @@ public class EventMonitoring implements WebSockServer {
         }
     }
 
-    private void initEventHandle() {
-        reader = new ReaderHandle(executor, context);
-        write = new WriteHandle(executor);
-    }
-
     @Override
     public void destroy() {
         start = false;
@@ -89,7 +79,7 @@ public class EventMonitoring implements WebSockServer {
         try {
             SocketChannel channel = server.accept();
             channel.configureBlocking(false);
-            channel.register(selector, SelectionKey.OP_READ);
+            channel.register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
         } catch (IOException e) {
             e.printStackTrace();
         }

@@ -34,6 +34,7 @@ public class HttpNioServer extends WebHttpServerFactory {
     public void destroy(WebServerContext context) throws IOException {
         eventMonitoring.destroy();
         super.destroy(context);
+        Logger.info("Service stops on port ".concat(String.valueOf(context.getPort())));
     }
 
     private void initListener(WebServerContext context) {
@@ -46,5 +47,6 @@ public class HttpNioServer extends WebHttpServerFactory {
         serverChannel.configureBlocking(false);
         serverChannel.socket().bind(new InetSocketAddress(context.getIp(), context.getPort()));
         serverChannel.register(selector, SelectionKey.OP_ACCEPT);
+        Logger.info("http Server start in port " + context.getPort());
     }
 }

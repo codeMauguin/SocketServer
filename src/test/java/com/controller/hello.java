@@ -68,7 +68,10 @@ public class hello {
     }
 
     @PostMapper("/api")
-    pojo hello(pojo pojo) {
+    pojo hello(int id, short age, double height) {
+        System.out.println("id = " + id);
+        System.out.println("age = " + age);
+        System.out.println("height = " + height);
         return pojo;
     }
 }

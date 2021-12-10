@@ -35,9 +35,14 @@ public abstract class WebHttpServerFactory implements Server<WebServerContext> {
     }
 
     private void initExecutor() {
+        String finalServerName = "bio";
+        if (this instanceof HttpNioServer) {
+            finalServerName = "nio";
+        }
+        String finalServerName1 = finalServerName;
         executor = new ThreadPoolExecutor(8, Integer.MAX_VALUE, 60, TimeUnit.SECONDS, new SynchronousQueue<>(),
 
-                r -> new Thread(Thread.currentThread().getThreadGroup(), r, "web-bio-Server"));
+                r -> new Thread(Thread.currentThread().getThreadGroup(), r, "web-%s-Server".formatted(finalServerName1)));
 
     }
 
