@@ -1,6 +1,6 @@
 package org.context.Bean;
 
-import Logger.Logger;
+import com.whit.Logger.Logger;
 import web.server.WebServerContext;
 
 import java.lang.reflect.Field;

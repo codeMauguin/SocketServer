@@ -1,6 +1,6 @@
 package web.Socket;
 
-import Logger.Logger;
+import com.whit.Logger.Logger;
 import web.Socket.Handle.BioHttpHandle;
 import web.server.WebServerContext;
 

@@ -1,6 +1,6 @@
 package web.Socket;
 
-import Logger.Logger;
+import com.whit.Logger.Logger;
 import web.Socket.nio.EventMonitoring;
 import web.server.WebServerContext;
 
@@ -45,7 +45,7 @@ public class HttpNioServer extends WebHttpServerFactory {
         selector = Selector.open();
         ServerSocketChannel serverChannel = ServerSocketChannel.open();
         serverChannel.configureBlocking(false);
-        serverChannel.socket().bind(new InetSocketAddress(context.getIp(), context.getPort()));
+        serverChannel.bind(new InetSocketAddress(context.getIp(), context.getPort()));
         serverChannel.register(selector, SelectionKey.OP_ACCEPT);
         Logger.info("http Server start in port " + context.getPort());
     }

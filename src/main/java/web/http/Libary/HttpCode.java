@@ -11,7 +11,8 @@ public enum HttpCode {
     HTTP_201(201, "Created"),
     HTTP_202(202, "Accepted"),
     HTTP_404(404, "Not Found"),
-    HTTP_405(405, "Method not allowed");
+    HTTP_405(405, "Method not allowed"),
+    HTTP_500(500, "Internal server error");
     private final int code;
     private final String msg;
 

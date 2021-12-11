@@ -11,7 +11,7 @@ import web.server.WebServerContext;
  * @Modified By:
  */
 public class HttpOptionRequest {
-    public static void handle(WebServerContext context, HttpRequest request, HttpServletResponse response) {
+    public static boolean handle(WebServerContext context, HttpRequest request, HttpServletResponse response) {
         boolean b = context.checkOrigin(response.getOrigin());
         if (b) {
             if (request.getMethod().equals("OPTIONS")) {
@@ -26,5 +26,6 @@ public class HttpOptionRequest {
             response.addHeader("Vary", "Access-Control-Request-Headers");
             response.addHeader("Access-Control-Allow-Origin", response.getOrigin());
         }
+        return b;
     }
 }

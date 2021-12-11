@@ -1,15 +1,15 @@
 package web.Socket.Handle;
 
-import Logger.Logger;
+import com.whit.Logger.Logger;
 import org.context.util.MessageUtil;
 import web.Socket.InputStream.NioReaderInputStream;
 import web.Socket.InputStream.ReaderInputStream;
 import web.Socket.Reader;
-import web.http.Controller.HttpOptionRequest;
 import web.http.Header.HttpHeader;
 import web.http.Header.Impl.HttpHeaderBuilder;
 import web.http.Imlp.HttpServletRequest;
 import web.http.Imlp.HttpServletResponse;
+import web.http.Libary.HttpCode;
 import web.http.Libary.HttpHeaderInfo;
 import web.http.Libary.HttpInfo;
 import web.http.Libary.HttpRequestRecord;
@@ -23,6 +23,8 @@ import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
+
+import static web.http.Controller.HttpOptionRequest.handle;
 
 /**
  * @author 陈浩
@@ -91,17 +93,19 @@ public class NioHttpHandle extends HttpHandle {
             Logger.info("method:{0}", info.method());
             //处理消息
 //            对跨域处理
-            HttpOptionRequest.handle(context, request, response);
+            boolean whetherToAllowCrossDomain = handle(context, request, response);
+
 //            进入过滤器
             doFilter(request, response);
 //            检查是否需要读取body
             MessageUtil util = checkBody(headerInfo);
             //寻找实图解析器
-            if (!request.getMethod().equals("OPTIONS")) {
+            if (!request.getMethod().equals("OPTIONS") && whetherToAllowCrossDomain) {
                 try {
                     doInvoke(util);
                 } catch (Exception e) {
                     e.printStackTrace();
+                    response.setCode(HttpCode.HTTP_500);
                 }
             }
         } catch (IOException e) {

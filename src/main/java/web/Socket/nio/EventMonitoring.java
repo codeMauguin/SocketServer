@@ -1,6 +1,5 @@
 package web.Socket.nio;
 
-import web.Socket.Handle.EventHandle;
 import web.Socket.Handle.NioHttpHandle;
 import web.Socket.WebSockServer;
 import web.server.WebServerContext;
@@ -25,9 +24,6 @@ public class EventMonitoring implements WebSockServer {
     private final WebServerContext context;
     private final ThreadPoolExecutor executor;
     private volatile boolean start = true;
-
-    private EventHandle<SelectionKey> reader;
-    private EventHandle<SelectionKey> write;
 
     public EventMonitoring(Selector selector, WebServerContext context, ThreadPoolExecutor executor) {
         this.selector = selector;

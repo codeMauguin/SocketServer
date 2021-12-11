@@ -1,6 +1,6 @@
 package web.server;
 
-import Logger.Logger;
+import com.whit.Logger.Logger;
 import org.context.Bean.DefaultSingletonBeanRegistry;
 import org.reflections.Reflections;
 import web.Socket.HttpNioServer;
