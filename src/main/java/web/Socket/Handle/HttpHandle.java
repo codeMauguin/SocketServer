@@ -11,6 +11,7 @@ import web.http.Imlp.HttpServletResponse;
 import web.http.Libary.*;
 import web.server.WebServerContext;
 import web.util.Assert;
+import web.util.TypeConverter;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -140,7 +141,7 @@ public abstract class HttpHandle implements WebSockServer {
                 Object invoke = method.getMethod().invoke(controller.getInstance(), args);
                 Class<?> returnType = method.getMethod().getReturnType();
                 if (!returnType.equals(Void.class)) {
-                    if (MessageUtil.isPrimitive(returnType)) {
+                    if (TypeConverter.isPrimitive(returnType)) {
                         byteArrayOutputStream.write(invoke.toString().getBytes(resp.getResponseUnicode()));
                     } else {
                         byteArrayOutputStream.write(MyJSON.JSON.ObjectToString(invoke).getBytes(resp.getResponseUnicode()));

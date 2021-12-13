@@ -79,7 +79,6 @@ public class BioHttpHandle extends HttpHandle {
     public void start() {
         try {
             Logger.info("RemoteAddress:{0}", accept.getRemoteSocketAddress());
-
             Logger.info("path:{0}", info.path());
             Logger.info("method:{0}", info.method());
             headerInfo.setTimeout(context.getTimeout());

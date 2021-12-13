@@ -3,7 +3,6 @@ package web.util;
 import com.alibaba.fastjson.JSONException;
 
 import java.lang.reflect.*;
-import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.Function;
@@ -29,18 +28,6 @@ public class TypeConverter {
             Short.TYPE, Short.class,
             String.class, String.class
     );
-    private final static Map<Class<?>, Function<String, ?>> typeConversionAdapter = Map.of(
-            Boolean.class, (Function<String, Boolean>) Boolean::valueOf,
-            Character.class, (Function<String, Character>) o -> o.charAt(0),
-            Integer.class, (Function<String, Integer>) Integer::valueOf,
-            Long.class, (Function<String, Long>) Long::valueOf,
-            Byte.class, (Function<String, Byte>) Byte::valueOf,
-            Double.class, (Function<String, Double>) Double::valueOf,
-            Float.class, (Function<String, Float>) Float::valueOf,
-            Short.class, (Function<String, Short>) Short::valueOf,
-            String.class, (Function<String, String>) o -> o,
-            BigDecimal.class, (Function<String, BigDecimal>) BigDecimal::new
-    );
 
     private final static Map<Class<?>, Function<MessageReader.lexec, ?>> lexecAdapter = Map.of(
             Boolean.class, (Function<MessageReader.lexec, Boolean>) TypeUtils::caseBoolean,
@@ -56,7 +43,7 @@ public class TypeConverter {
 
 
     public static boolean isPrimitive(Class<?> type) {
-        return type.isPrimitive() || typeConversionAdapter.containsKey(type);
+        return type.isPrimitive() || lexecAdapter.containsKey(type);
     }
 
     @SuppressWarnings("all")

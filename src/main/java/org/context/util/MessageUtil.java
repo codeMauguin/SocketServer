@@ -1,6 +1,5 @@
 package org.context.util;
 
-import org.mortbay.util.MultiMap;
 import web.http.HttpRequest;
 import web.http.HttpResponse;
 import web.util.MessageReader;
@@ -11,7 +10,6 @@ import java.lang.reflect.Parameter;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
-import java.util.IdentityHashMap;
 import java.util.Map;
 
 /**
@@ -22,22 +20,7 @@ import java.util.Map;
  */
 public class MessageUtil {
 
-    private static final Map<Class<?>, Class<?>> primitiveWrapperTypeMap = new IdentityHashMap<>(9);
-
-    static {
-        primitiveWrapperTypeMap.put(Boolean.class, Boolean.TYPE);
-        primitiveWrapperTypeMap.put(Byte.class, Byte.TYPE);
-        primitiveWrapperTypeMap.put(Character.class, Character.TYPE);
-        primitiveWrapperTypeMap.put(Double.class, Double.TYPE);
-        primitiveWrapperTypeMap.put(Float.class, Float.TYPE);
-        primitiveWrapperTypeMap.put(Integer.class, Integer.TYPE);
-        primitiveWrapperTypeMap.put(Long.class, Long.TYPE);
-        primitiveWrapperTypeMap.put(Short.class, Short.TYPE);
-        primitiveWrapperTypeMap.put(String.class, String.class);
-    }
-
     private final Map<String, MessageReader.lexec> pathParameter;
-    private final MultiMap<String> pathParameters = new MultiMap<>();
     private final byte[] body;
     private final String ContentType;
 
@@ -53,9 +36,6 @@ public class MessageUtil {
         init();
     }
 
-    public static boolean isPrimitive(Class<?> source) {
-        return source.isPrimitive() || primitiveWrapperTypeMap.containsKey(source);
-    }
 
     private void init() {
         if (body != null) {
@@ -75,7 +55,7 @@ public class MessageUtil {
     private Object formResolve(Map<String, MessageReader.lexec> read, Parameter parameter) {
         MessageReader.lexec lexec = read.get(parameter.getName());
         if (lexec != null) {
-            if (isPrimitive(parameter.getType())) {
+            if (TypeConverter.isPrimitive(parameter.getType())) {
                 return TypeConverter.typePrimitiveConversion(lexec, parameter.getType());
             }
             //TODO 数组类型
@@ -95,14 +75,13 @@ public class MessageUtil {
     }
 
     /**
-     * @param parameters 方法参数
+     * @param parameters 方法参数类型
      * @param request    请求
      * @param response   响应
-     * @return
+     * @return 方法参数
      */
     public Object[] resolve(Parameter[] parameters, HttpRequest request, HttpResponse response) {
         Object[] args = new Object[parameters.length];
-        //只从body读数据
         for (int i = 0, parametersLength = parameters.length; i < parametersLength; i++) {
             Parameter parameter = parameters[i];
             if (HttpRequest.class.isAssignableFrom(parameter.getType())) {
@@ -127,7 +106,6 @@ public class MessageUtil {
                     continue;
                 }
             } else {
-
                 MessageReader.lexec lexec = getLexec(parameter.getName());
                 if (lexec != null) {
                     if (TypeConverter.isPrimitive(parameter.getType())) {
@@ -152,7 +130,6 @@ public class MessageUtil {
                     }
                     Object arg = TypeConverter.typeBeanConversion(parameter, lexec);
                     Array.set(args, i, arg);
-                    continue;
                 } else {
                     if (TypeConverter.isPrimitive(parameter.getType())) {
                         Object arg = TypeConverter.typePrimitiveConversion(new MessageReader.lexec(body), parameter.getType());
@@ -171,8 +148,8 @@ public class MessageUtil {
                     }
                     Object arg = TypeConverter.typeBeanConversion(parameter, new MessageReader.lexec(body));
                     Array.set(args, i, arg);
-                    continue;
                 }
+                continue;
             }
             Array.set(args, i, null);
         }

@@ -14,7 +14,7 @@ public record HttpInfo(String method, String path, String version, String params
             path = route.substring(0,
                     index);
         } else {
-            params = "";
+            params = null;
             path = route;
         }
         return new HttpInfo(method, path, version, params);

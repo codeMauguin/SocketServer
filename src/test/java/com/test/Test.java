@@ -11,6 +11,6 @@ import web.server.WebWorkServer;
 public class Test {
     public static void main(String[] args) {
         WebServer webServer = new WebWorkServer();
-        webServer.run(args);
+        webServer.run(new String[]{"path:com,port:80","origin:[http://127.0.0.1:5500]"});
     }
 }

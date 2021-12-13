@@ -30,7 +30,7 @@ import static web.http.Controller.HttpOptionRequest.handle;
  * @author 陈浩
  * @slogan: Talk is cheap. Show me the code.
  * @Date: created in 6:41 下午 2021/12/10
- * @Modified By:
+ * @Modified By: 陈浩
  */
 public class NioHttpHandle extends HttpHandle {
     private final SelectionKey key;
@@ -127,7 +127,6 @@ public class NioHttpHandle extends HttpHandle {
 
     @Override
     public void destroy() {
-        Logger.info("响应");
         StringBuilder builder = new StringBuilder();
         prepareResponse();
         initHttpState(builder, response);
