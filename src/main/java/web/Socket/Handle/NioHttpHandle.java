@@ -19,7 +19,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
-import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
@@ -39,6 +38,8 @@ public class NioHttpHandle extends HttpHandle {
     private SocketChannel client;
     private HttpServletResponse response;
     private ByteArrayOutputStream responseOutputStream;
+
+    private HttpHeaderInfo headerInfo;
 
     public NioHttpHandle(WebServerContext context, SelectionKey key) {
         super(context);
@@ -80,7 +81,7 @@ public class NioHttpHandle extends HttpHandle {
     @Override
     public void start() {
         try {
-            HttpHeaderInfo headerInfo = new HttpHeaderInfo(info);
+            headerInfo = new HttpHeaderInfo(info);
             headerInfo.setTimeout(context.getTimeout());
             HttpRequestRecord pojo = new HttpRequestRecord(info);
             HttpHeader httpHeader = new HttpHeaderBuilder(headerReader(reader, getHeaderHandle(headerInfo)));
@@ -142,14 +143,30 @@ public class NioHttpHandle extends HttpHandle {
             e.printStackTrace();
             return;
         }
-        registerAgain();
+        if (headerInfo.isConnection())
+            registerAgain();
+        else {
+            try {
+                close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void close() throws IOException {
+        client.close();
     }
 
     private void registerAgain() {
-        SelectableChannel channel = key.channel();
         try {
-            channel.configureBlocking(false);
-            channel.register(key.selector(), SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+
+            Logger.info("{0}重新绑定服务", client.getRemoteAddress());
+        } catch (IOException ignore) {
+        }
+        try {
+            client.configureBlocking(false);
+            client.register(key.selector(), SelectionKey.OP_READ | SelectionKey.OP_WRITE);
             key.selector().wakeup();
         } catch (IOException e) {
             e.printStackTrace();

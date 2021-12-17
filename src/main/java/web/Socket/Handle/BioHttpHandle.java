@@ -16,6 +16,7 @@ import web.server.WebServerContext;
 import java.io.*;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 
 import static web.http.Controller.HttpOptionRequest.handle;
 
@@ -59,7 +60,7 @@ public class BioHttpHandle extends HttpHandle {
         try {
             inputStream = accept.getInputStream();
             outputStream = accept.getOutputStream();
-            while (accept.isConnected() && !accept.isClosed()) {
+            while (accept.isConnected() && !accept.isClosed() && (Objects.isNull(headerInfo) || headerInfo.isConnection())) {
                 reader = new Reader(new BioReaderInputStream(inputStream));
                 try {
                     info = initHttpInfo(reader);

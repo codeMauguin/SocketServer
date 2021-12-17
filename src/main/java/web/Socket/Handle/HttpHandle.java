@@ -86,6 +86,9 @@ public abstract class HttpHandle implements WebSockServer {
                 headerInfo.setOrigin(value);
                 Logger.info("origin:{0}", value);
             }
+            case "Connection" -> {
+                headerInfo.setConnection("keep-alive".equalsIgnoreCase(value));
+            }
         }
     }
 

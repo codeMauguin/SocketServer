@@ -1,15 +1,25 @@
 package web.http.Libary;
 
 public class HttpHeaderInfo {
+    private final HttpInfo info;
     private String type = "";
     private String origin = "";
     private String charset = "UTF-8";
     private int length = 0;
-    private final HttpInfo info;
     private String timeout;
+
+    private boolean isConnection = true;
 
     public HttpHeaderInfo(HttpInfo info) {
         this.info = info;
+    }
+
+    public boolean isConnection() {
+        return isConnection;
+    }
+
+    public void setConnection(boolean connection) {
+        isConnection = connection;
     }
 
     public String getTimeout() {

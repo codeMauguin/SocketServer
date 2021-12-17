@@ -106,49 +106,29 @@ public class MessageUtil {
                     continue;
                 }
             } else {
-                MessageReader.lexec lexec = getLexec(parameter.getName());
-                if (lexec != null) {
-                    if (TypeConverter.isPrimitive(parameter.getType())) {
-                        Object arg = TypeConverter.typePrimitiveConversion(lexec, parameter.getType());
-                        Array.set(args, i, arg);
-                        continue;
-                    }
-                    if (parameter.getType().isArray()) {
-                        Object arg = TypeConverter.typeArrayConversion(parameter, lexec);
-                        Array.set(args, i, arg);
-                        continue;
-                    }
-                    if (Collection.class.isAssignableFrom(parameter.getType())) {
-                        Object arg = TypeConverter.typeCollectionConversion(parameter, lexec);
-                        Array.set(args, i, arg);
-                        continue;
-                    }
-                    if (Map.class.isAssignableFrom(parameter.getType())) {
-                        Object arg = TypeConverter.typeMapConversion(parameter, new MessageReader(lexec.readAllBytes()).read());
-                        Array.set(args, i, arg);
-                        continue;
-                    }
-                    Object arg = TypeConverter.typeBeanConversion(parameter, lexec);
+                MessageReader.lexec lexec = bodyLexec.getOrDefault(parameter.getName(), new MessageReader.lexec(body));
+                if (TypeConverter.isPrimitive(parameter.getType())) {
+                    Object arg = TypeConverter.typePrimitiveConversion(lexec, parameter.getType());
                     Array.set(args, i, arg);
-                } else {
-                    if (TypeConverter.isPrimitive(parameter.getType())) {
-                        Object arg = TypeConverter.typePrimitiveConversion(new MessageReader.lexec(body), parameter.getType());
-                        Array.set(args, i, arg);
-                        continue;
-                    }
-                    if (Map.class.isAssignableFrom(parameter.getType())) {
-                        Object arg = TypeConverter.typeMapConversion(parameter, bodyLexec);
-                        Array.set(args, i, arg);
-                        continue;
-                    }
-                    if (Collection.class.isAssignableFrom(parameter.getType())) {
-                        Object arg = TypeConverter.typeCollectionConversion(parameter, new MessageReader.lexec(body));
-                        Array.set(args, i, arg);
-                        continue;
-                    }
-                    Object arg = TypeConverter.typeBeanConversion(parameter, new MessageReader.lexec(body));
-                    Array.set(args, i, arg);
+                    continue;
                 }
+                if (parameter.getType().isArray()) {
+                    Object arg = TypeConverter.typeArrayConversion(parameter, lexec);
+                    Array.set(args, i, arg);
+                    continue;
+                }
+                if (Collection.class.isAssignableFrom(parameter.getType())) {
+                    Object arg = TypeConverter.typeCollectionConversion(parameter, lexec);
+                    Array.set(args, i, arg);
+                    continue;
+                }
+                if (Map.class.isAssignableFrom(parameter.getType())) {
+                    Object arg = TypeConverter.typeMapConversion(parameter, new MessageReader(lexec.readAllBytes()).read());
+                    Array.set(args, i, arg);
+                    continue;
+                }
+                Object arg = TypeConverter.typeBeanConversion(parameter, lexec);
+                Array.set(args, i, arg);
                 continue;
             }
             Array.set(args, i, null);
@@ -156,7 +136,4 @@ public class MessageUtil {
         return args;
     }
 
-    private MessageReader.lexec getLexec(String key) {
-        return bodyLexec.get(key);
-    }
 }
