@@ -2,7 +2,6 @@ package web.http.Imlp;
 
 import web.util.Assert;
 
-import javax.annotation.Nullable;
 import java.util.*;
 
 /**
@@ -32,14 +31,13 @@ public class MultiValueMapAdapter<K, V> implements MultiValueMap<K, V> {
     // MultiValueMap implementation
 
     @Override
-    @Nullable
     public V getFirst(K key) {
         List<V> values = this.targetMap.get(key);
         return (values != null && !values.isEmpty() ? values.get(0) : null);
     }
 
     @Override
-    public void add(K key, @Nullable V value) {
+    public void add(K key, V value) {
         List<V> values = this.targetMap.computeIfAbsent(key, k -> new ArrayList<>(1));
         values.add(value);
     }
@@ -58,7 +56,7 @@ public class MultiValueMapAdapter<K, V> implements MultiValueMap<K, V> {
     }
 
     @Override
-    public void set(K key, @Nullable V value) {
+    public void set(K key, V value) {
         List<V> values = new ArrayList<>(1);
         values.add(value);
         this.targetMap.put(key, values);
@@ -104,19 +102,16 @@ public class MultiValueMapAdapter<K, V> implements MultiValueMap<K, V> {
     }
 
     @Override
-    @Nullable
     public List<V> get(Object key) {
         return this.targetMap.get(key);
     }
 
     @Override
-    @Nullable
     public List<V> put(K key, List<V> value) {
         return this.targetMap.put(key, value);
     }
 
     @Override
-    @Nullable
     public List<V> remove(Object key) {
         return this.targetMap.remove(key);
     }
@@ -147,7 +142,7 @@ public class MultiValueMapAdapter<K, V> implements MultiValueMap<K, V> {
     }
 
     @Override
-    public boolean equals(@Nullable Object other) {
+    public boolean equals(Object other) {
         return (this == other || this.targetMap.equals(other));
     }
 

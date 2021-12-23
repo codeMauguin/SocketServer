@@ -2,7 +2,8 @@ package com.controller;
 
 import org.context.Bean.annotation.Resource;
 import web.http.Controller.annotation.Controller;
-import web.http.Controller.annotation.PostMapper;
+import web.http.Controller.annotation.RequestMapper;
+import web.http.Libary.RequestMethod;
 import web.http.annotation.Component;
 import web.http.annotation.Service;
 
@@ -67,11 +68,9 @@ public class hello {
         this.pojo = pojo;
     }
 
-    @PostMapper("/api")
-    pojo hello(int id, short age, double height) {
-        System.out.println("id = " + id);
-        System.out.println("age = " + age);
-        System.out.println("height = " + height);
+    @RequestMapper(value = "/api", methods = {RequestMethod.GET, RequestMethod.POST})
+    pojo hello(int id) {
+        pojo.id = id;
         return pojo;
     }
 }

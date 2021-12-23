@@ -1,6 +1,5 @@
 package web.http.Imlp;
 
-import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 
@@ -11,7 +10,6 @@ import java.util.Map;
  * @Modified By:
  */
 public interface MultiValueMap<K, V> extends Map<K, List<V>> {
-    @Nullable
     V getFirst(K key);
 
     /**
@@ -20,7 +18,7 @@ public interface MultiValueMap<K, V> extends Map<K, List<V>> {
      * @param key   the key
      * @param value the value to be added
      */
-    void add(K key, @Nullable V value);
+    void add(K key, V value);
 
     /**
      * Add all the values of the given list to the current list of values for the given key.
@@ -47,7 +45,7 @@ public interface MultiValueMap<K, V> extends Map<K, List<V>> {
      * @param value the value to be added
      * @since 5.2
      */
-    default void addIfAbsent(K key, @Nullable V value) {
+    default void addIfAbsent(K key, V value) {
         if (!containsKey(key)) {
             add(key, value);
         }
@@ -59,7 +57,7 @@ public interface MultiValueMap<K, V> extends Map<K, List<V>> {
      * @param key   the key
      * @param value the value to set
      */
-    void set(K key, @Nullable V value);
+    void set(K key, V value);
 
     /**
      * Set the given values under.

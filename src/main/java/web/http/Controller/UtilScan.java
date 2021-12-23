@@ -16,10 +16,7 @@ import web.server.WebServerContext;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.HashSet;
-import java.util.Locale;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 
 public class UtilScan {
     private static final String prefix = "/";
@@ -45,6 +42,12 @@ public class UtilScan {
                     PostMapper mapper = method.getAnnotation(PostMapper.class);
                     String suffix = mapper.value().matches("^/.*") ? mapper.value().substring(1) : mapper.value();
                     controllerMethods.add(new ControllerMethod(method, suffix, new String[]{"POST"}));
+                } else if (method.isAnnotationPresent(RequestMapper.class)) {
+                    RequestMapper mapper = method.getAnnotation(RequestMapper.class);
+                    String suffix = mapper.value().matches("^/.*") ? mapper.value().substring(1) : mapper.value();
+                    String[] methods =
+                            Arrays.stream(mapper.methods()).map(requestMethod -> requestMethod.name()).toArray(String[]::new);
+                    controllerMethods.add(new ControllerMethod(method, suffix, methods));
                 }
             }
             controllerRecords.add(new ControllerRecord(prefix, context, controllerMethods, controller, false));

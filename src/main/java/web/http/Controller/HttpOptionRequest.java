@@ -12,6 +12,8 @@ import web.server.WebServerContext;
  */
 public class HttpOptionRequest {
     public static boolean handle(WebServerContext context, HttpRequest request, HttpServletResponse response) {
+        if (response.getOrigin().equals(""))
+            return true;
         boolean b = context.checkOrigin(response.getOrigin());
         if (b) {
             if (request.getMethod().equals("OPTIONS")) {

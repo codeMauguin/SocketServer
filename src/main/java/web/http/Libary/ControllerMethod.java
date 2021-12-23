@@ -31,6 +31,6 @@ public class ControllerMethod {
 
 
     public boolean getMapper(String method) {
-        return Arrays.stream(mapper).allMatch(str -> str.matches(method));
+        return Arrays.stream(mapper).anyMatch(str -> str.matches(method));
     }
 }

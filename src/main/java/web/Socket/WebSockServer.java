@@ -12,10 +12,4 @@ public interface WebSockServer extends Runnable {
 
     void destroy();
 
-    @Override
-    default void run() {
-        start();
-        destroy();
-    }
-
 }

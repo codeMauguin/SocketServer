@@ -1,5 +1,7 @@
 package web.http.Controller.annotation;
 
+import web.http.Libary.RequestMethod;
+
 import java.lang.annotation.*;
 
 /**
@@ -13,4 +15,6 @@ import java.lang.annotation.*;
 @Documented
 public @interface RequestMapper {
     String value() default "/";
+
+    RequestMethod[] methods() default RequestMethod.GET;
 }

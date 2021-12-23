@@ -23,6 +23,7 @@ public class EventMonitoring implements WebSockServer {
     private final Selector selector;
     private final WebServerContext context;
     private final ThreadPoolExecutor executor;
+
     private volatile boolean start = true;
 
     public EventMonitoring(Selector selector, WebServerContext context, ThreadPoolExecutor executor) {
@@ -35,17 +36,18 @@ public class EventMonitoring implements WebSockServer {
     public void start() {
         try {
             while (start) {
-                int size = selector.select(10);
+                int size = selector.select();
                 if (size > 0) {
                     Set<SelectionKey> selectionKeys = selector.selectedKeys();
                     Iterator<SelectionKey> iterator = selectionKeys.iterator();
                     while (iterator.hasNext()) {
                         SelectionKey key = iterator.next();
+                        iterator.remove();
+                        if (!key.isValid()) continue;
                         try {
-                            iterator.remove();
                             if (key.isAcceptable()) {
                                 accept(key, selector);
-                            } else if (key.isReadable() & key.isWritable()) {
+                            } else if (key.isReadable()) {
                                 key.cancel();
                                 executor.submit(new NioHttpHandle(context, key));
                             } else if (key.isConnectable()) {
@@ -65,6 +67,7 @@ public class EventMonitoring implements WebSockServer {
         }
     }
 
+
     @Override
     public void destroy() {
         start = false;
@@ -73,11 +76,17 @@ public class EventMonitoring implements WebSockServer {
     private void accept(SelectionKey key, Selector selector) {
         ServerSocketChannel server = (ServerSocketChannel) key.channel();
         try {
+            server.configureBlocking(false);
             SocketChannel channel = server.accept();
             channel.configureBlocking(false);
-            channel.register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+            channel.register(selector, SelectionKey.OP_READ & ~SelectionKey.OP_WRITE, null);
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    @Override
+    public void run() {
+        start();
     }
 }

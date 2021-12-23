@@ -19,6 +19,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
@@ -38,7 +39,6 @@ public class NioHttpHandle extends HttpHandle {
     private SocketChannel client;
     private HttpServletResponse response;
     private ByteArrayOutputStream responseOutputStream;
-
     private HttpHeaderInfo headerInfo;
 
     public NioHttpHandle(WebServerContext context, SelectionKey key) {
@@ -62,20 +62,28 @@ public class NioHttpHandle extends HttpHandle {
 
     @Override
     public void run() {
+        //TODO 客户端已经断开连接，服务端没有感知 判断第一个是否读取为空，为空则关闭这个可以并且取消监听
         client = (SocketChannel) key.channel();
+        Logger.info(String.valueOf(client.isConnected()));
         inputStream = new NioReaderInputStream(client);
         reader = new Reader(inputStream);
         try {
+            Logger.info("RemoteAddress:{0}", client.getRemoteAddress());
             info = initHttpInfo(reader);
         } catch (IllegalArgumentException | IOException e) {
             try {
-                key.channel().close();
+                key.cancel();
+                client.close();
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
             return;
         }
-        super.run();
+        Logger.info("开始调用start");
+        start();
+        Logger.info("开始调用destroy");
+        destroy();
+        Logger.info("调用destroy完毕");
     }
 
     @Override
@@ -89,7 +97,6 @@ public class NioHttpHandle extends HttpHandle {
             this.responseOutputStream = new ByteArrayOutputStream();
             response = new HttpServletResponse(this.responseOutputStream, headerInfo);
             init(request, response, reader);
-            Logger.info("RemoteAddress:{0}", client.getRemoteAddress());
             Logger.info("path:{0}", info.path());
             Logger.info("method:{0}", info.method());
             //处理消息
@@ -108,7 +115,7 @@ public class NioHttpHandle extends HttpHandle {
                     e.printStackTrace();
                     response.setCode(HttpCode.HTTP_500);
                 }
-            }
+            } else response.setCode(HttpCode.HTTP_405);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -118,7 +125,6 @@ public class NioHttpHandle extends HttpHandle {
         try {
             while (buffer.hasRemaining()) {
                 channel.write(buffer);
-
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -143,8 +149,7 @@ public class NioHttpHandle extends HttpHandle {
             e.printStackTrace();
             return;
         }
-        if (headerInfo.isConnection())
-            registerAgain();
+        if (headerInfo.isConnection()) registerAgain();
         else {
             try {
                 close();
@@ -160,16 +165,9 @@ public class NioHttpHandle extends HttpHandle {
 
     private void registerAgain() {
         try {
-
-            Logger.info("{0}重新绑定服务", client.getRemoteAddress());
-        } catch (IOException ignore) {
-        }
-        try {
-            client.configureBlocking(false);
-            client.register(key.selector(), SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+            key.channel().register(key.selector(), SelectionKey.OP_READ & ~SelectionKey.OP_WRITE);
             key.selector().wakeup();
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (ClosedChannelException ignored) {
         }
     }
 }
