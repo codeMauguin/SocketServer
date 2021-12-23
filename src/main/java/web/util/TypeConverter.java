@@ -54,7 +54,6 @@ public class TypeConverter {
             declaredConstructor.setAccessible(true);
             o = declaredConstructor.newInstance();
             for (Field declaredField : type.getDeclaredFields()) {
-                declaredField.getGenericType();
                 Object fieldBean = typeConversion(declaredField, read.get(declaredField.getName()));
                 try {
                     Method method =
