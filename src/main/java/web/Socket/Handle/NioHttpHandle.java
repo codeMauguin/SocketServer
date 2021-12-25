@@ -76,7 +76,6 @@ public class NioHttpHandle extends HttpHandle {
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
-            e.printStackTrace(System.err);
             return;
         }
         start();

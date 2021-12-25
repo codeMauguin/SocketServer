@@ -54,16 +54,16 @@ public class DefaultSingletonBeanRegistry {
     }
 
     private BeanFactory checkScope(BeanDefinition definition) throws Exception {
-        BeanFactory beanFactory = definition.getBeanFactory();
+        FactoryBean beanFactory = (FactoryBean) definition.getBeanFactory();
         if (!beanFactory.isScope()) {
             if (!beanFactory.isDefault()) {
-                Class<?>[] constructorParameters = ((FactoryBean) beanFactory).getConstructorParameters();
+                Class<?>[] constructorParameters = beanFactory.getConstructorParameters();
                 for (int i = 0, constructorParametersLength = constructorParameters.length; i < constructorParametersLength; i++) {
                     Object bean = getBean(constructorParameters[i]);
-                    ((FactoryBean) beanFactory).fill(i, bean);
+                    beanFactory.fill(i, bean);
                 }
             }
-            ((FactoryBean) beanFactory).init();
+            beanFactory.init();
         }
         populate(definition);
         return definition.getBeanFactory();

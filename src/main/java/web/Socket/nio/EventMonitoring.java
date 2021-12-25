@@ -1,5 +1,6 @@
 package web.Socket.nio;
 
+import com.whit.Logger.Logger;
 import web.Socket.Handle.NioHttpHandle;
 import web.Socket.WebSockServer;
 import web.server.WebServerContext;
@@ -34,6 +35,7 @@ public class EventMonitoring implements WebSockServer {
 
     @Override
     public void start() {
+        Logger.info("开始监听");
         try {
             while (start) {
                 int size = selector.select();
@@ -49,7 +51,8 @@ public class EventMonitoring implements WebSockServer {
                                 accept(key, selector);
                             } else if (key.isReadable()) {
                                 key.cancel();
-                                executor.submit(new NioHttpHandle(context, key));
+                                executor.execute(new NioHttpHandle(context, key));
+                                Logger.info("线程池活跃线程数:{0}", executor.getActiveCount());
                             } else if (key.isConnectable()) {
                                 System.out.println("key = " + key);
                             }
