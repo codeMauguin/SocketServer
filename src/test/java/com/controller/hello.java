@@ -14,6 +14,9 @@ class pojo {
     int id;
     String name;
 
+    private pojo() {
+    }
+
     public boolean getCode() {
         return code;
     }

@@ -38,9 +38,8 @@ public class ChildBeanDefinition<T> implements BeanDefinition {
     @Override
     public void resolvableConstructorDependency() throws NoSuchMethodException {
         Class<?> target = this.factoryBean.getType();
-        Constructor[] constructors = target.getDeclaredConstructors();
+        Constructor<?>[] constructors = target.getDeclaredConstructors();
         Constructor<?> declaredConstructor = constructors[0];
-        factoryBean.setConstructor(declaredConstructor);
         factoryBean.setConstructorVars(declaredConstructor.getParameterTypes());
         factoryBean.setDefault(declaredConstructor.getParameterCount() == 0);
     }

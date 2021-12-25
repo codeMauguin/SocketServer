@@ -1,8 +1,8 @@
 package org.context.Bean;
 
 import org.context.Bean.annotation.Scope;
+import web.http.Controller.ClassRegistrar;
 
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Locale;
@@ -24,8 +24,6 @@ public class SingleBeanFactory implements FactoryBean {
     private boolean isDefault;
 
     private boolean scope = true;
-    private Constructor<?> constructor;
-
     private Map<Field, BeanDefinition> definitions;
 
     public SingleBeanFactory(Class<?> target, String beanName) {
@@ -78,10 +76,6 @@ public class SingleBeanFactory implements FactoryBean {
         return this.parameters;
     }
 
-    @Override
-    public void setConstructor(Constructor<?> constructor) {
-        this.constructor = constructor;
-    }
 
     @Override
     public boolean check(Class<?> target) {
@@ -100,8 +94,7 @@ public class SingleBeanFactory implements FactoryBean {
 
     @Override
     public void init() throws Exception {
-        constructor.setAccessible(true);
-        this.instance = constructor.newInstance(params);
+        this.instance = ClassRegistrar.registrar(target, parameters, params);
     }
 
     @Override

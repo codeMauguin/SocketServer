@@ -5,12 +5,13 @@ import web.http.HttpResponse;
 import web.util.MessageReader;
 import web.util.TypeConverter;
 
-import java.lang.reflect.Array;
 import java.lang.reflect.Parameter;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Map;
+
+import static java.lang.reflect.Array.set;
 
 /**
  * @author 陈浩
@@ -45,8 +46,7 @@ public class MessageUtil {
                     bodyLexec = reader.read();
                 }
                 case "FORM" -> {
-                    Map<String, MessageReader.lexec> bodyLexec = reader.readForm();
-                    this.bodyLexec = bodyLexec;
+                    this.bodyLexec = reader.readForm();
                 }
             }
         }
@@ -58,7 +58,6 @@ public class MessageUtil {
             if (TypeConverter.isPrimitive(parameter.getType())) {
                 return TypeConverter.typePrimitiveConversion(lexec, parameter.getType());
             }
-            //TODO 数组类型
             if (parameter.getType().isArray()) {
                 return TypeConverter.typeArrayConversion(parameter, lexec);
             }
@@ -85,53 +84,53 @@ public class MessageUtil {
         for (int i = 0, parametersLength = parameters.length; i < parametersLength; i++) {
             Parameter parameter = parameters[i];
             if (HttpRequest.class.isAssignableFrom(parameter.getType())) {
-                Array.set(args, i, request);
+                set(args, i, request);
                 continue;
             }
             if (HttpResponse.class.isAssignableFrom(parameter.getType())) {
-                Array.set(args, i, response);
+                set(args, i, response);
                 continue;
             }
             if (pathParameter != null) {
                 Object arg = formResolve(pathParameter, parameter);
                 if (arg != null) {
-                    Array.set(args, i, arg);
+                    set(args, i, arg);
                     continue;
                 }
             }
             if (ContentType.equals("FORM")) {
                 Object arg = formResolve(bodyLexec, parameter);
                 if (arg != null) {
-                    Array.set(args, i, arg);
+                    set(args, i, arg);
                     continue;
                 }
             } else {
                 MessageReader.lexec lexec = bodyLexec.getOrDefault(parameter.getName(), new MessageReader.lexec(body));
                 if (TypeConverter.isPrimitive(parameter.getType())) {
                     Object arg = TypeConverter.typePrimitiveConversion(lexec, parameter.getType());
-                    Array.set(args, i, arg);
+                    set(args, i, arg);
                     continue;
                 }
                 if (parameter.getType().isArray()) {
                     Object arg = TypeConverter.typeArrayConversion(parameter, lexec);
-                    Array.set(args, i, arg);
+                    set(args, i, arg);
                     continue;
                 }
                 if (Collection.class.isAssignableFrom(parameter.getType())) {
                     Object arg = TypeConverter.typeCollectionConversion(parameter, lexec);
-                    Array.set(args, i, arg);
+                    set(args, i, arg);
                     continue;
                 }
                 if (Map.class.isAssignableFrom(parameter.getType())) {
                     Object arg = TypeConverter.typeMapConversion(parameter, new MessageReader(lexec.readAllBytes()).read());
-                    Array.set(args, i, arg);
+                    set(args, i, arg);
                     continue;
                 }
                 Object arg = TypeConverter.typeBeanConversion(parameter, lexec);
-                Array.set(args, i, arg);
+                set(args, i, arg);
                 continue;
             }
-            Array.set(args, i, null);
+            set(args, i, null);
         }
         return args;
     }

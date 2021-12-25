@@ -9,45 +9,40 @@ import web.http.Filter.annotation.Order;
 import web.http.Filter.annotation.WebFilter;
 import web.http.Libary.ControllerMethod;
 import web.http.Libary.ControllerRecord;
+import web.http.Libary.RequestMethod;
 import web.http.annotation.Component;
 import web.http.annotation.Service;
 import web.server.WebServerContext;
+import web.util.ArraysUtil;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.regex.Pattern;
 
 public class UtilScan {
     private static final String prefix = "/";
 
-    public static Set<ControllerRecord> scanController(Reflections reflections, WebServerContext context) {
+    public static Set<ControllerRecord> scanController(Reflections reflections, WebServerContext context) throws Throwable {
         Set<Class<?>> controllers = reflections.getTypesAnnotatedWith(Controller.class);
         Set<ControllerRecord> controllerRecords = new HashSet<>();
         for (Class<?> controller : controllers) {
-//            Object registrar = ClassRegistrar.registrar(controller);
-            Object registrar = context.getBean(controller);
             String prefix = "/";
             if (controller.isAnnotationPresent(RequestMapper.class))
                 prefix = controller.getAnnotation(RequestMapper.class).value().trim();
             prefix = pathProcess(prefix, "");
             Method[] declaredMethods = controller.getDeclaredMethods();
             Set<ControllerMethod> controllerMethods = new HashSet<>();
+            List<Class<? extends Annotation>> list = Arrays.asList(GetMapper.class, PostMapper.class, PutMapper.class);
             for (Method method : declaredMethods) {
-                if (method.isAnnotationPresent(GetMapper.class)) {
-                    GetMapper mapper = method.getAnnotation(GetMapper.class);
-                    String suffix = mapper.value().matches("^/.*") ? mapper.value().substring(1) : mapper.value();
-                    controllerMethods.add(new ControllerMethod(method, suffix, new String[]{"GET"}));
-                } else if (method.isAnnotationPresent(PostMapper.class)) {
-                    PostMapper mapper = method.getAnnotation(PostMapper.class);
-                    String suffix = mapper.value().matches("^/.*") ? mapper.value().substring(1) : mapper.value();
-                    controllerMethods.add(new ControllerMethod(method, suffix, new String[]{"POST"}));
+                Class<? extends Annotation> first = ArraysUtil.findFirst(list, method::isAnnotationPresent);
+                if (first != null) {
+                    extracted(controllerMethods, method, method.getAnnotation(first));
                 } else if (method.isAnnotationPresent(RequestMapper.class)) {
                     RequestMapper mapper = method.getAnnotation(RequestMapper.class);
-                    String suffix = mapper.value().matches("^/.*") ? mapper.value().substring(1) : mapper.value();
-                    String[] methods =
-                            Arrays.stream(mapper.methods()).map(requestMethod -> requestMethod.name()).toArray(String[]::new);
-                    controllerMethods.add(new ControllerMethod(method, suffix, methods));
+                    String suffix = Pattern.matches("^/.*", mapper.value()) ? mapper.value().substring(1) : mapper.value();
+                    controllerMethods.add(new ControllerMethod(method, suffix, mapper.methods()));
                 }
             }
             controllerRecords.add(new ControllerRecord(prefix, context, controllerMethods, controller, false));
@@ -55,12 +50,20 @@ public class UtilScan {
         return controllerRecords;
     }
 
+    private static void extracted(Set<ControllerMethod> controllerMethods, Method method, Annotation mapper) throws Throwable {
+        Method MOD = mapper.annotationType().getMethod("value");
+        String value = (String) MOD.invoke(mapper);
+        String suffix = Pattern.matches("^/.*", value) ? value.substring(1) : value;
+        RequestMethod METHOD = (RequestMethod) mapper.annotationType().getField("METHOD").get(mapper);
+        controllerMethods.add(new ControllerMethod(method, suffix, METHOD));
+    }
+
     public static String pathProcess(String route, String suffix) {
-        if (route.equals("/") || route.matches("^/.*/$")) {
+        if (route.equals("/") || Pattern.matches("^/.*/$", route)) {
             route = route.concat(suffix);
-        } else if (route.matches("^(?!/).*/$")) {
+        } else if (Pattern.matches("^(?!/).*/$", route)) {
             route = UtilScan.prefix.concat(route).concat(suffix);
-        } else if (route.matches("^/.*(?<!/)$")) {
+        } else if (Pattern.matches("^/.*(?<!/)$", route)) {
             route = route.concat(prefix).concat(suffix);
         } else {
             route = UtilScan.prefix.concat(route).concat(UtilScan.prefix).concat(suffix);
@@ -106,8 +109,7 @@ public class UtilScan {
         }
     }
 
-    private static void registryByAnnotation(Set<Class<?>> target,
-                                             Class<? extends Annotation> annotation, DefaultSingletonBeanRegistry registry) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+    private static void registryByAnnotation(Set<Class<?>> target, Class<? extends Annotation> annotation, DefaultSingletonBeanRegistry registry) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
         for (Class<?> aClass : target) {
             Annotation annoy = aClass.getAnnotation(annotation);
             registry.registered(aClass, nameHandle(aClass, annoy));

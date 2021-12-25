@@ -44,7 +44,7 @@ public class WebWorkServer implements WebServer {
             AtomicInteger port = new AtomicInteger(80);
             List<String> origins = new Vector<>();
             //Mac 默认的host运行没有权限
-            AtomicReference<InetAddress> host = new AtomicReference<>(InetAddress.getByName("127.0.0.1"));
+            AtomicReference<InetAddress> host = new AtomicReference<>(InetAddress.getByName("0.0.0.0"));
             for (String arg : args) {
                 ConfigReader reader = new ConfigReader(arg);
                 reader.read((var0, var1) -> {
@@ -105,7 +105,7 @@ public class WebWorkServer implements WebServer {
         this.webHttpServerFactory = new HttpNioServer();
     }
 
-    private void initController(WebServerContext context) {
+    private void initController(WebServerContext context) throws Throwable {
         for (Reflections route : reflections) {
             Set<ControllerRecord> controllerRecords = UtilScan.scanController(route, context);
             context.setControllerRecords(controllerRecords);

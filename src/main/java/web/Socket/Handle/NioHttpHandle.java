@@ -64,7 +64,6 @@ public class NioHttpHandle extends HttpHandle {
     public void run() {
         //TODO 客户端已经断开连接，服务端没有感知 判断第一个是否读取为空，为空则关闭这个可以并且取消监听
         client = (SocketChannel) key.channel();
-        Logger.info(String.valueOf(client.isConnected()));
         inputStream = new NioReaderInputStream(client);
         reader = new Reader(inputStream);
         try {
@@ -77,13 +76,11 @@ public class NioHttpHandle extends HttpHandle {
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
+            e.printStackTrace(System.err);
             return;
         }
-        Logger.info("开始调用start");
         start();
-        Logger.info("开始调用destroy");
         destroy();
-        Logger.info("调用destroy完毕");
     }
 
     @Override
@@ -105,9 +102,9 @@ public class NioHttpHandle extends HttpHandle {
 
 //            进入过滤器
             doFilter(request, response);
-//            检查是否需要读取body
+//            check if you need to read the body
             MessageUtil util = checkBody(headerInfo);
-            //寻找实图解析器
+            //Look for a real image parser to exclude OPTIONS requests or non-allowed domain requests
             if (!request.getMethod().equals("OPTIONS") && whetherToAllowCrossDomain) {
                 try {
                     doInvoke(util);
@@ -166,7 +163,7 @@ public class NioHttpHandle extends HttpHandle {
     private void registerAgain() {
         try {
             key.channel().register(key.selector(), SelectionKey.OP_READ & ~SelectionKey.OP_WRITE);
-            key.selector().wakeup();
+            key.selector().wakeup();//Wake up the selector, otherwise it will block until a new request will listen to the socket
         } catch (ClosedChannelException ignored) {
         }
     }

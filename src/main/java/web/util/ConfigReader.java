@@ -15,11 +15,9 @@ import java.util.function.BiConsumer;
 public class ConfigReader {
 
     private final char EDF = 0xff;
-    private final char start = '{';
     private final char comma = ',';
     private final char colon = ':';
     private final char errChar = ';';
-    private final char end = '}';
     private String buffer;
     private int pos = 0;
     private int mark = 0;
@@ -99,6 +97,8 @@ public class ConfigReader {
         P1:
         while (true) {
             char read = read();
+            final char start = '{';
+            final char end = '}';
             switch (read) {
                 case EDF -> {
                     break P1;
@@ -109,9 +109,7 @@ public class ConfigReader {
                     key.setLength(0);
                     brand = 0;
                 }
-                case '\"' -> {
-                    actual++;
-                }
+                case '\"' -> actual++;
                 case errChar -> throw new
                         IllegalArgumentException(MessageFormat.format("syntax error, position at {0}, name {1}",
                         result.size(), key.toString()));

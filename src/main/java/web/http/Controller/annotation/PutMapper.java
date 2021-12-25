@@ -4,11 +4,17 @@ import web.http.Libary.RequestMethod;
 
 import java.lang.annotation.*;
 
+/**
+ * @author 陈浩
+ * @slogan: Talk is cheap. Show me the code.
+ * @Date: created in 11:21 PM 2021/12/24
+ * @Modified By:
+ */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 @Documented
-public @interface GetMapper {
-    RequestMethod METHOD = RequestMethod.GET;
+public @interface PutMapper {
+    RequestMethod METHOD = RequestMethod.PUT;
 
     String value() default "/";
 }

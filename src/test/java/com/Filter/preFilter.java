@@ -12,12 +12,12 @@ import web.http.HttpResponse;
  * @Date: created in 5:36 下午 2021/11/29
  * @Modified By:
  */
-@WebFilter("/api/**/op")
-@Order(0)
+@WebFilter("/api")
+@Order(4)
 public class preFilter implements Filter {
     @Override
     public void doFilter(HttpRequest request, HttpResponse response) {
-        System.out.println("0-进入");
+        System.out.println("0-进入-4");
     }
 
 }

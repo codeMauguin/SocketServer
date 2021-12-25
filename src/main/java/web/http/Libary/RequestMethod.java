@@ -7,16 +7,14 @@ package web.http.Libary;
  * @Modified By:
  */
 public enum RequestMethod {
-    GET("GET"),
-    HEAD("HEAD"),
-    POST("POST"),
-    PUT("PUT"),
-    PATCH("PATCH"),
-    DELETE("DELETE"),
-    OPTIONS("OPTIONS"),
-    TRACE("TRACE");
+    GET,
+    HEAD,
+    POST,
+    PUT,
+    PATCH,
+    DELETE,
+    OPTIONS,
+    TRACE
 
 
-    RequestMethod(String method) {
-    }
 }

@@ -1,5 +1,7 @@
 package web.http.Filter;
 
+import java.util.regex.Pattern;
+
 /**
  * @author 陈浩
  * @slogan: Talk is cheap. Show me the code.
@@ -22,11 +24,11 @@ public record FilterRecord(String mapper, Filter filter, Integer index) implemen
     }
 
     public boolean matches(String path) {
-        return path.matches(mapper);
+        return Pattern.matches(mapper, path);
     }
 
     @Override
     public int compareTo(FilterRecord o) {
-        return index.compareTo(o.index);
+        return (index < o.index) ? -1 : 1;
     }
 }
