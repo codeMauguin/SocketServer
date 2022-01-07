@@ -1,7 +1,7 @@
 package org.context.Bean;
 
 import com.whit.Logger.Logger;
-import context.Bean.annotation.Resource;
+import org.context.Bean.annotation.Resource;
 import org.reflections.ReflectionUtils;
 
 import java.lang.reflect.Constructor;
