@@ -1,7 +1,5 @@
 package web.http.Controller.annotation;
 
-import web.http.Libary.RequestMethod;
-
 import java.lang.annotation.*;
 
 /**
@@ -14,7 +12,6 @@ import java.lang.annotation.*;
 @Target(ElementType.METHOD)
 @Documented
 public @interface PutMapper {
-    RequestMethod METHOD = RequestMethod.PUT;
 
     String value() default "/";
 }

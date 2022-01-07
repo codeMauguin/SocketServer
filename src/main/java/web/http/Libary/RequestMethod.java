@@ -15,6 +15,4 @@ public enum RequestMethod {
     DELETE,
     OPTIONS,
     TRACE
-
-
 }

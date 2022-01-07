@@ -2,6 +2,7 @@ package com.controller;
 
 import org.context.Bean.annotation.Resource;
 import web.http.Controller.annotation.Controller;
+import web.http.Controller.annotation.PutMapper;
 import web.http.Controller.annotation.RequestMapper;
 import web.http.Libary.RequestMethod;
 import web.http.annotation.Component;
@@ -69,6 +70,11 @@ public class hello {
 
     public void setPojo(com.controller.pojo pojo) {
         this.pojo = pojo;
+    }
+
+    @PutMapper("/put")
+    pojo put() {
+        return pojo;
     }
 
     @RequestMapper(value = "/api", methods = {RequestMethod.GET, RequestMethod.POST})

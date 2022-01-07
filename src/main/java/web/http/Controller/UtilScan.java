@@ -10,6 +10,7 @@ import web.http.Filter.annotation.WebFilter;
 import web.http.Libary.ControllerMethod;
 import web.http.Libary.ControllerRecord;
 import web.http.Libary.RequestMethod;
+import web.http.Libary.RequestWapper;
 import web.http.annotation.Component;
 import web.http.annotation.Service;
 import web.server.WebServerContext;
@@ -54,7 +55,7 @@ public class UtilScan {
         Method MOD = mapper.annotationType().getMethod("value");
         String value = (String) MOD.invoke(mapper);
         String suffix = Pattern.matches("^/.*", value) ? value.substring(1) : value;
-        RequestMethod METHOD = (RequestMethod) mapper.annotationType().getField("METHOD").get(mapper);
+        RequestMethod METHOD = RequestWapper.get(mapper.annotationType());
         controllerMethods.add(new ControllerMethod(method, suffix, METHOD));
     }
 

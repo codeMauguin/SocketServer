@@ -65,9 +65,7 @@ public class WebServerContext {
     }
 
     public Set<FilterRecord> getFilter(String path) {
-        return filterRecords.stream()
-                .filter(filterRecord -> filterRecord.matches(path))
-                .collect(Collectors.toCollection(TreeSet::new));
+        return filterRecords.stream().filter(filterRecord -> filterRecord.matches(path)).collect(Collectors.toCollection(TreeSet::new));
     }
 
     protected void setFilterRecords(Set<FilterRecord> filterRecords) {
@@ -79,10 +77,7 @@ public class WebServerContext {
     }
 
     public ControllerRecord getController(String path) {
-        return controllerRecords.stream()
-                .filter(record -> Objects.nonNull(record.getMethod(path)))
-                .findFirst()
-                .orElse(null);
+        return controllerRecords.stream().filter(record -> record.isServlet() ? record.getRegex().equals(path) : Objects.nonNull(record.getMethod(path))).findFirst().orElse(null);
     }
 
     public int getPort() {

@@ -11,11 +11,6 @@ import java.util.function.Predicate;
  */
 public class ArraysUtil {
     public static <T> T findFirst(Collection<T> collection, Predicate<T> predicate) {
-        for (T t : collection) {
-            if (predicate.test(t)) {
-                return t;
-            }
-        }
-        return null;
+        return collection.parallelStream().filter(predicate).findFirst().orElse(null);
     }
 }
