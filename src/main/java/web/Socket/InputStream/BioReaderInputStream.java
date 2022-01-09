@@ -21,4 +21,9 @@ public class BioReaderInputStream extends ReaderInputStream {
     public int read() throws IOException {
         return stream.read();
     }
+
+    @Override
+    public int available() throws IOException {
+        return stream.available();
+    }
 }

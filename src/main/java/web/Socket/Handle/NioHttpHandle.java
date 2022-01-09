@@ -1,15 +1,11 @@
 package web.Socket.Handle;
 
 import com.whit.Logger.Logger;
-import org.context.util.MessageUtil;
 import web.Socket.InputStream.NioReaderInputStream;
 import web.Socket.InputStream.ReaderInputStream;
 import web.Socket.Reader;
 import web.http.Header.HttpHeader;
 import web.http.Header.Impl.HttpHeaderBuilder;
-import web.http.Imlp.HttpServletRequest;
-import web.http.Imlp.HttpServletResponse;
-import web.http.Libary.HttpCode;
 import web.http.Libary.HttpHeaderInfo;
 import web.http.Libary.HttpInfo;
 import web.http.Libary.HttpRequestRecord;
@@ -19,12 +15,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
-import java.nio.channels.ClosedChannelException;
+import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
-
-import static web.http.Controller.HttpOptionRequest.handle;
 
 /**
  * @author 陈浩
@@ -33,19 +27,21 @@ import static web.http.Controller.HttpOptionRequest.handle;
  * @Modified By: 陈浩
  */
 public class NioHttpHandle extends HttpHandle {
-    private final SelectionKey key;
+    private SelectionKey key;
     private ReaderInputStream inputStream;
     private HttpInfo info;
     private SocketChannel client;
     private HttpServletResponse response;
     private ByteArrayOutputStream responseOutputStream;
-    private HttpHeaderInfo headerInfo;
 
-    public NioHttpHandle(WebServerContext context, SelectionKey key) {
+    public NioHttpHandle(WebServerContext context) {
         super(context);
-        this.key = key;
     }
 
+
+    public void release(Object key) {
+        this.key = (SelectionKey) key;
+    }
 
     @Override
     protected ByteBuffer prepareBuffer(Object b) {
@@ -62,6 +58,7 @@ public class NioHttpHandle extends HttpHandle {
 
     @Override
     public void run() {
+        super.setStatus(HttpHandle.CHOKE);
         //TODO 客户端已经断开连接，服务端没有感知 判断第一个是否读取为空，为空则关闭这个可以并且取消监听
         client = (SocketChannel) key.channel();
         inputStream = new NioReaderInputStream(client);
@@ -78,15 +75,14 @@ public class NioHttpHandle extends HttpHandle {
             }
             return;
         }
-        start();
-        destroy();
+        super.run();
     }
 
     @Override
     public void start() {
         try {
             headerInfo = new HttpHeaderInfo(info);
-            headerInfo.setTimeout(context.getTimeout());
+            headerInfo.setTimeout(String.valueOf(context.getTimeout() / 1000));
             HttpRequestRecord pojo = new HttpRequestRecord(info);
             HttpHeader httpHeader = new HttpHeaderBuilder(headerReader(reader, getHeaderHandle(headerInfo)));
             request = new HttpServletRequest(inputStream, httpHeader, pojo);
@@ -96,22 +92,8 @@ public class NioHttpHandle extends HttpHandle {
             Logger.info("path:{0}", info.path());
             Logger.info("method:{0}", info.method());
             //处理消息
-//            对跨域处理
-            boolean whetherToAllowCrossDomain = handle(context, request, response);
-
 //            进入过滤器
             doFilter(request, response);
-//            check if you need to read the body
-            MessageUtil util = checkBody(headerInfo);
-            //Look for a real image parser to exclude OPTIONS requests or non-allowed domain requests
-            if (!request.getMethod().equals("OPTIONS") && whetherToAllowCrossDomain) {
-                try {
-                    doInvoke(util);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    response.setCode(HttpCode.HTTP_500);
-                }
-            } else response.setCode(HttpCode.HTTP_405);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -130,6 +112,9 @@ public class NioHttpHandle extends HttpHandle {
 
     @Override
     public void destroy() {
+
+//         check if you need to read the body
+        //Look for a real image parser to exclude OPTIONS requests or non-allowed domain requests
         StringBuilder builder = new StringBuilder();
         prepareResponse();
         initHttpState(builder, response);
@@ -161,9 +146,11 @@ public class NioHttpHandle extends HttpHandle {
 
     private void registerAgain() {
         try {
-            key.channel().register(key.selector(), SelectionKey.OP_READ & ~SelectionKey.OP_WRITE);
-            key.selector().wakeup();//Wake up the selector, otherwise it will block until a new request will listen to the socket
-        } catch (ClosedChannelException ignored) {
+            if (!client.isRegistered()) client.register(key.selector(), SelectionKey.OP_READ & ~SelectionKey.OP_WRITE);
+        } catch (CancelledKeyException exception) {
+            exception.printStackTrace();
+        } catch (Exception ignored) {
         }
+        key.selector().wakeup();//Wake up the selector, otherwise it will block until a new request will listen to the socket
     }
 }

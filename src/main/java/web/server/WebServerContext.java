@@ -1,6 +1,8 @@
 package web.server;
 
-import org.context.Bean.DefaultSingletonBeanRegistry;
+import context.Bean.Context;
+import web.Socket.Handle.BioHttpHandle;
+import web.Socket.Handle.HttpHandle;
 import web.http.Filter.FilterRecord;
 import web.http.Libary.ControllerRecord;
 
@@ -19,12 +21,11 @@ public class WebServerContext {
     private final InetAddress ip;
     private final Set<ControllerRecord> controllerRecords = new HashSet<>();
     private final long start;
+    private final Class<? extends HttpHandle> serverType = BioHttpHandle.class;
     private Set<FilterRecord> filterRecords;
-
     private String[] origins = new String[0];
-
-    private int timeout = 3000;
-    private DefaultSingletonBeanRegistry beanPools;
+    private long timeout = 3000;
+    private Context beanPools;
 
     public WebServerContext(int port, InetAddress ip) {
         this.port = port;
@@ -32,8 +33,8 @@ public class WebServerContext {
         this.start = System.currentTimeMillis();
     }
 
-    public String getTimeout() {
-        return String.valueOf(timeout / 1000);
+    public Long getTimeout() {
+        return timeout;
     }
 
     public void setTimeout(int timeout) {
@@ -56,7 +57,7 @@ public class WebServerContext {
         return beanPools.getBean(beanName);
     }
 
-    public void setBeanPools(DefaultSingletonBeanRegistry beanPools) {
+    public void setBeanPools(Context beanPools) {
         this.beanPools = beanPools;
     }
 
@@ -64,8 +65,8 @@ public class WebServerContext {
         return start;
     }
 
-    public Set<FilterRecord> getFilter(String path) {
-        return filterRecords.stream().filter(filterRecord -> filterRecord.matches(path)).collect(Collectors.toCollection(TreeSet::new));
+    public List<FilterRecord> getFilter(String path) {
+        return filterRecords.stream().filter(filterRecord -> filterRecord.matches(path)).collect(Collectors.toCollection(ArrayList::new));
     }
 
     protected void setFilterRecords(Set<FilterRecord> filterRecords) {
@@ -86,5 +87,9 @@ public class WebServerContext {
 
     public InetAddress getIp() {
         return ip;
+    }
+
+    public Class<? extends HttpHandle> getServerType() {
+        return this.serverType;
     }
 }

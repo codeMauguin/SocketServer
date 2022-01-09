@@ -1,6 +1,8 @@
-package web.http.Imlp;
+package web.Socket.Handle;
 
 import web.http.HttpResponse;
+import web.http.Imlp.MultiValueMap;
+import web.http.Imlp.MultiValueMapAdapter;
 import web.http.Libary.HttpCode;
 import web.http.Libary.HttpHeaderInfo;
 
@@ -16,7 +18,7 @@ public class HttpServletResponse implements HttpResponse {
     private String response_unicode = "UTF-8";
     private HttpCode code = HttpCode.HTTP_200;
 
-    public HttpServletResponse(OutputStream outputStream, HttpHeaderInfo httpHeader) {
+    HttpServletResponse(OutputStream outputStream, HttpHeaderInfo httpHeader) {
         this.outputStream = outputStream;
         printSteam = new PrintStream(outputStream);
         headers = new MultiValueMapAdapter<>();

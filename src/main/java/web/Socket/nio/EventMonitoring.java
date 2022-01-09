@@ -1,9 +1,9 @@
 package web.Socket.nio;
 
 import com.whit.Logger.Logger;
-import web.Socket.Handle.NioHttpHandle;
+import web.Socket.Handle.HttpHandle;
+import web.Socket.WebHttpServerFactory;
 import web.Socket.WebSockServer;
-import web.server.WebServerContext;
 
 import java.io.IOException;
 import java.nio.channels.SelectionKey;
@@ -22,22 +22,23 @@ import java.util.concurrent.ThreadPoolExecutor;
  */
 public class EventMonitoring implements WebSockServer {
     private final Selector selector;
-    private final WebServerContext context;
     private final ThreadPoolExecutor executor;
-
+    private final WebHttpServerFactory factory;
     private volatile boolean start = true;
 
-    public EventMonitoring(Selector selector, WebServerContext context, ThreadPoolExecutor executor) {
+    public EventMonitoring(Selector selector, WebHttpServerFactory factory, ThreadPoolExecutor executor) {
         this.selector = selector;
-        this.context = context;
         this.executor = executor;
+        this.factory = factory;
     }
+
 
     @Override
     public void start() {
         Logger.info("开始监听");
         try {
             while (start) {
+                factory.handle();
                 int size = selector.select();
                 if (size > 0) {
                     Set<SelectionKey> selectionKeys = selector.selectedKeys();
@@ -50,10 +51,13 @@ public class EventMonitoring implements WebSockServer {
                             if (key.isAcceptable()) {
                                 accept(key, selector);
                             } else if (key.isReadable()) {
-                                key.cancel();
-                                executor.execute(new NioHttpHandle(context, key));
+                                cancel(key);
+                                HttpHandle handle = factory.getHandle();
+                                handle.release(key);
+                                executor.execute(handle);
                                 Logger.info("线程池活跃线程数:{0}", executor.getActiveCount());
                             } else if (key.isConnectable()) {
+                                cancel(key);
                                 System.out.println("key = " + key);
                             }
                         } catch (Exception e) {
@@ -68,6 +72,10 @@ public class EventMonitoring implements WebSockServer {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private void cancel(SelectionKey key) {
+        key.cancel();
     }
 
 

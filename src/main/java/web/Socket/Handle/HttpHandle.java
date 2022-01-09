@@ -4,10 +4,9 @@ import com.whit.Logger.Logger;
 import org.context.util.MessageUtil;
 import web.Socket.Reader;
 import web.Socket.WebSockServer;
-import web.http.Filter.FilterRecord;
+import web.http.Filter.FilterDispatcher;
 import web.http.HttpRequest;
 import web.http.HttpResponse;
-import web.http.Imlp.HttpServletResponse;
 import web.http.Libary.*;
 import web.server.WebServerContext;
 import web.util.Assert;
@@ -23,6 +22,8 @@ import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.regex.Pattern;
 
+import static web.http.Controller.HttpOptionRequest.handle;
+
 /**
  * @author 陈浩
  * @slogan: Talk is cheap. Show me the code.
@@ -30,6 +31,9 @@ import java.util.regex.Pattern;
  * @Modified By:
  */
 public abstract class HttpHandle implements WebSockServer {
+
+    public final static boolean READY = true;
+    public final static boolean CHOKE = false;
     private final static Pattern JSON_MATCH = Pattern.compile(".*json.*", Pattern.CASE_INSENSITIVE);
     private final static Pattern FORM_MATCH = Pattern.compile(".*x-www-form-urlencoded.*", Pattern.CASE_INSENSITIVE);
     protected HttpRequest request;
@@ -37,8 +41,16 @@ public abstract class HttpHandle implements WebSockServer {
     protected Reader reader;
     protected WebServerContext context;
 
+    protected boolean PASS_THE_FILTER = false;
+
+    protected HttpHeaderInfo headerInfo;
+
+    protected FilterDispatcher dispatcher;
+    private volatile boolean BE_READY = true;
+
     public HttpHandle(WebServerContext context) {
         this.context = context;
+        dispatcher = new FilterDispatcher(context, this);
     }
 
     public static Map<String, String> headerReader(Reader reader, BiConsumer<String, String> action) throws IOException {
@@ -61,21 +73,15 @@ public abstract class HttpHandle implements WebSockServer {
                 int start = value.indexOf("=") + 1;
                 int end;
                 if (start > 0) {
-                    if (value.lastIndexOf(";") > start)
-                        end = value.length() - 1;
-                    else
-                        end = value.length();
+                    if (value.lastIndexOf(";") > start) end = value.length() - 1;
+                    else end = value.length();
                     headerInfo.setCharset(value.substring(start, end));
                     Logger.info("charset:{0}", headerInfo.getCharset());
                 }
                 if (JSON_MATCH.matcher(value).matches()) {
-                    headerInfo.setType(
-                            "JSON"
-                    );
+                    headerInfo.setType("JSON");
                 } else if (FORM_MATCH.matcher(value).matches()) {
-                    headerInfo.setType(
-                            "FORM"
-                    );
+                    headerInfo.setType("FORM");
                 }
             }
             case "Content-Length" -> {
@@ -96,8 +102,7 @@ public abstract class HttpHandle implements WebSockServer {
         if (Objects.equals(response.getMethod(), "OPTIONS")) {
             builder.append("HTTP/%s %d\r\n".formatted(response.getVersion(), response.getCode().getCode()));
         } else {
-            builder.append(NetworkLibrary.HTTP_HEADER.getContent().formatted(response.getVersion(),
-                    response.getCode().getCode(), response.getCode().getMsg()));
+            builder.append(NetworkLibrary.HTTP_HEADER.getContent().formatted(response.getVersion(), response.getCode().getCode(), response.getCode().getMsg()));
         }
     }
 
@@ -110,13 +115,44 @@ public abstract class HttpHandle implements WebSockServer {
             String var1 = next.getKey();
             List<String> var2 = next.getValue();
             for (String var3 : var2) {
-                builder.append(String.format(NetworkLibrary.HTTP_HEADER_MODEL.getContent(), var1.trim(),
-                        var3.trim()));
+                builder.append(String.format(NetworkLibrary.HTTP_HEADER_MODEL.getContent(), var1.trim(), var3.trim()));
             }
         }
 
     }
 
+    public void doFilter(HttpRequest request, HttpResponse response) {
+        PASS_THE_FILTER = Boolean.FALSE;
+        dispatcher.doFilter(request, response);
+        dispatcher.release();
+        if (!PASS_THE_FILTER) {
+            checkBody(headerInfo);//没有走控制器也要消费body数据
+        }
+    }
+
+    public void service(HttpRequest request, HttpResponse response) {
+        PASS_THE_FILTER = true;
+        MessageUtil util = checkBody(headerInfo);
+        boolean whetherToAllowCrossDomain = handle(context, request, (HttpServletResponse) response);
+        if (!request.getMethod().equals("OPTIONS") && whetherToAllowCrossDomain) {
+            try {
+                doInvoke(util);
+            } catch (Exception e) {
+                e.printStackTrace();
+                ((HttpServletResponse) response).setCode(HttpCode.HTTP_500);
+            }
+        } else ((HttpServletResponse) response).setCode(HttpCode.HTTP_405);
+    }
+
+    public abstract void release(Object key);
+
+    public synchronized boolean isBE_READY() {
+        return BE_READY;
+    }
+
+    protected void setStatus(boolean BE_READY) {
+        this.BE_READY = BE_READY;
+    }
 
     protected void doInvoke(MessageUtil util) throws Exception {
         HttpServletResponse resp = (HttpServletResponse) response;
@@ -134,12 +170,9 @@ public abstract class HttpHandle implements WebSockServer {
             }
         } else {
             ControllerMethod method = controller.getMethod(request.getPath());
-            if (
-                    method.getMapper(request.getMethod())
-            ) {
+            if (method.getMapper(request.getMethod())) {
                 Parameter[] parameters = method.getParameters();
-                Object[]
-                        args = util.resolve(parameters, request, response);
+                Object[] args = util.resolve(parameters, request, response);
                 method.getMethod().setAccessible(true);
                 Object invoke = method.getMethod().invoke(controller.getInstance(), args);
                 Class<?> returnType = method.getMethod().getReturnType();
@@ -164,22 +197,16 @@ public abstract class HttpHandle implements WebSockServer {
         this.reader = reader;
     }
 
-    protected void doFilter(HttpRequest request, HttpResponse response) {
-        for (FilterRecord filter : context.getFilter(request.getPath())) {
-            filter.filter().doFilter(request, response);
-        }
-    }
-
     protected MessageUtil checkBody(HttpHeaderInfo headerInfo) {
         MessageUtil util;
         if (headerInfo.getLength() > 0) {
-            byte[] bytes = new byte[0];
+            byte[] bytes = null;
             try {
                 bytes = reader.readByteArray(headerInfo.getLength());
+                if (!PASS_THE_FILTER) return null;
             } catch (IOException ignored) {
             }
-            util = new MessageUtil(headerInfo.getInfo().params(), bytes,
-                    headerInfo.getType());
+            util = new MessageUtil(headerInfo.getInfo().params(), bytes, headerInfo.getType());
         } else {
             util = new MessageUtil(headerInfo.getInfo().params(), null, headerInfo.getType());
         }
@@ -202,5 +229,13 @@ public abstract class HttpHandle implements WebSockServer {
 
     protected BiConsumer<String, String> getHeaderHandle(HttpHeaderInfo headerInfo) {
         return (p, value) -> headerHandle(headerInfo, p, value);
+    }
+
+    @Override
+    public void run() {
+        setStatus(CHOKE);
+        start();
+        destroy();
+        setStatus(READY);
     }
 }

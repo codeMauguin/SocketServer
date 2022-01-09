@@ -53,4 +53,5 @@ public class NioReaderInputStream extends ReaderInputStream {
         System.arraycopy(allocate.array(), 0, b, off + 1, allocate.position());
         return i;
     }
+
 }

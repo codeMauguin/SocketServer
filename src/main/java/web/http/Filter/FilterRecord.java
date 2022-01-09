@@ -29,6 +29,7 @@ public record FilterRecord(String mapper, Filter filter, Integer index) implemen
 
     @Override
     public int compareTo(FilterRecord o) {
-        return (index < o.index) ? -1 : 1;
+        if (index == o.index) return filter.getClass().getSimpleName().compareTo(o.filter.getClass().getSimpleName());
+        return Integer.compare(index, o.index);
     }
 }

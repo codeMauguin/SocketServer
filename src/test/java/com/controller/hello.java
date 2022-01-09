@@ -1,6 +1,6 @@
 package com.controller;
 
-import org.context.Bean.annotation.Resource;
+import context.Bean.annotation.Resource;
 import web.http.Controller.annotation.Controller;
 import web.http.Controller.annotation.PutMapper;
 import web.http.Controller.annotation.RequestMapper;

@@ -1,6 +1,6 @@
 package web.http.Controller;
 
-import org.context.Bean.DefaultSingletonBeanRegistry;
+import context.Bean.DefaultSingletonBeanRegistry;
 import org.reflections.Reflections;
 import web.http.Controller.annotation.*;
 import web.http.Filter.Filter;
@@ -21,6 +21,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.regex.Pattern;
+
+import static org.reflections.scanners.Scanners.TypesAnnotated;
 
 public class UtilScan {
     private static final String prefix = "/";
@@ -103,16 +105,15 @@ public class UtilScan {
 
     public static void prepareBean(Set<Reflections> reflections, DefaultSingletonBeanRegistry registry) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
         for (Reflections reflection1 : reflections) {
-            registryByAnnotation(reflection1.getTypesAnnotatedWith(Controller.class), Controller.class, registry);
-            registryByAnnotation(reflection1.getTypesAnnotatedWith(Service.class), Service.class, registry);
-
-            registryByAnnotation(reflection1.getTypesAnnotatedWith(Component.class), Component.class, registry);
+            registryByAnnotation(reflection1.get(TypesAnnotated.with(Controller.class, Service.class, Component.class).asClass()), registry);
         }
     }
 
-    private static void registryByAnnotation(Set<Class<?>> target, Class<? extends Annotation> annotation, DefaultSingletonBeanRegistry registry) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+    private static void registryByAnnotation(Set<Class<?>> target, DefaultSingletonBeanRegistry registry) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        List<Class<? extends Annotation>> classList = Arrays.asList(Controller.class, Service.class, Component.class);
         for (Class<?> aClass : target) {
-            Annotation annoy = aClass.getAnnotation(annotation);
+            Class<? extends Annotation> aClass1 = classList.stream().filter(aClass::isAnnotationPresent).findFirst().orElse(null);
+            Annotation annoy = aClass.getAnnotation(Objects.requireNonNull(aClass1));
             registry.registered(aClass, nameHandle(aClass, annoy));
         }
     }

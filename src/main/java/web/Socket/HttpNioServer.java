@@ -38,7 +38,7 @@ public class HttpNioServer extends WebHttpServerFactory {
     }
 
     private void initListener(WebServerContext context) {
-        eventMonitoring = new EventMonitoring(selector, context, executor);
+        eventMonitoring = new EventMonitoring(selector, this, executor);
     }
 
     private void initChannel(WebServerContext context) throws Throwable {

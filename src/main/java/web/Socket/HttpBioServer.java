@@ -1,7 +1,7 @@
 package web.Socket;
 
 import com.whit.Logger.Logger;
-import web.Socket.Handle.BioHttpHandle;
+import web.Socket.Handle.HttpHandle;
 import web.server.WebServerContext;
 
 import java.io.IOException;
@@ -16,13 +16,17 @@ public class HttpBioServer extends WebHttpServerFactory {
         initServer(context);
         long end = System.currentTimeMillis();
         Logger.info("The program is running and starting up:{0}ms", end - context.getStart());
-        /*
-         *
-         */
         while (this.start) {
-            Socket accept = this.serverSocket.accept();
-            executor.execute(new BioHttpHandle(accept, context));
+            Socket accept = accept();
+            HttpHandle handle = getHandle();
+            handle.release(accept);
+            executor.execute(handle);
+            handle();
         }
+    }
+
+    private Socket accept() throws IOException {
+        return this.serverSocket.accept();
     }
 
     private void initServer(WebServerContext context) throws IOException {
@@ -33,7 +37,6 @@ public class HttpBioServer extends WebHttpServerFactory {
             serverSocket.bind(new InetSocketAddress(InetAddress.getByName("0.0.0.0"), context.getPort()));
         }
         Logger.info("http Server start in port " + context.getPort());
-
     }
 
     @Override
@@ -42,4 +45,5 @@ public class HttpBioServer extends WebHttpServerFactory {
         super.destroy(context);
         Logger.info("Service stops on port ".concat(String.valueOf(context.getPort())));
     }
+
 }

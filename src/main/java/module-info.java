@@ -9,4 +9,5 @@ module SocketServer {
     requires fastjson;
     requires Logger;
     requires org.reflections;
+    requires Bean;
 }

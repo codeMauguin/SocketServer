@@ -1,13 +1,11 @@
 package web.Socket.Handle;
 
 import com.whit.Logger.Logger;
-import org.context.util.MessageUtil;
 import web.Socket.InputStream.BioReaderInputStream;
+import web.Socket.InputStream.ReaderInputStream;
 import web.Socket.Reader;
 import web.http.Header.HttpHeader;
 import web.http.Header.Impl.HttpHeaderBuilder;
-import web.http.Imlp.HttpServletRequest;
-import web.http.Imlp.HttpServletResponse;
 import web.http.Libary.HttpHeaderInfo;
 import web.http.Libary.HttpInfo;
 import web.http.Libary.HttpRequestRecord;
@@ -16,9 +14,7 @@ import web.server.WebServerContext;
 import java.io.*;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
-import java.util.Objects;
-
-import static web.http.Controller.HttpOptionRequest.handle;
+import java.time.LocalDateTime;
 
 /**
  * @author 陈浩
@@ -27,19 +23,24 @@ import static web.http.Controller.HttpOptionRequest.handle;
  * @Modified By:
  */
 public class BioHttpHandle extends HttpHandle {
-    private final Socket accept;
-
+    private Socket accept;
+    private LocalDateTime start;
     private InputStream inputStream;
-    private OutputStream outputStream;
 
-    private HttpHeaderInfo headerInfo;
+    private ReaderInputStream readerInputStream;
+    private OutputStream outputStream;
     private HttpInfo info;
 
 
-    public BioHttpHandle(Socket accept, WebServerContext context) {
+    public BioHttpHandle(WebServerContext context) {
         super(context);
-        this.accept = accept;
+    }
 
+    @Override
+    public void release(Object key) {
+        if (key instanceof Socket socket) {
+            this.accept = socket;
+        } else throw new RuntimeException("Error Token" + key);
     }
 
     @Override
@@ -58,22 +59,35 @@ public class BioHttpHandle extends HttpHandle {
     @Override
     public void run() {
         try {
+            start = LocalDateTime.now();
             inputStream = accept.getInputStream();
             outputStream = accept.getOutputStream();
-            while (accept.isConnected() && !accept.isClosed() && (Objects.isNull(headerInfo) || headerInfo.isConnection())) {
-                reader = new Reader(new BioReaderInputStream(inputStream));
+            readerInputStream = new BioReaderInputStream(inputStream);
+            reader = new Reader(readerInputStream);
+            while (!accept.isClosed() && (headerInfo == null || headerInfo.isConnection()) && isNotTimeOut()) {
                 try {
                     info = initHttpInfo(reader);
                 } catch (IllegalArgumentException ignore) {
+                    if (inputStream.available() == 0) accept.close();
                     continue;
                 }
                 headerInfo = new HttpHeaderInfo(info);
-                start();
-                destroy();
+                super.run();
             }
         } catch (Exception e) {
+            Logger.error(e.getMessage());
+        }
+        try {
+            outputStream.close();
+            inputStream.close();
+            accept.close();
+        } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private boolean isNotTimeOut() {
+        return start.plusSeconds(context.getTimeout() / 1000).isAfter(LocalDateTime.now());
     }
 
     @Override
@@ -82,25 +96,15 @@ public class BioHttpHandle extends HttpHandle {
             Logger.info("RemoteAddress:{0}", accept.getRemoteSocketAddress());
             Logger.info("path:{0}", info.path());
             Logger.info("method:{0}", info.method());
-            headerInfo.setTimeout(context.getTimeout());
+            headerInfo.setTimeout(String.valueOf(context.getTimeout() / 1000));
             HttpRequestRecord pojo = new HttpRequestRecord(info);
             HttpHeader httpHeader = new HttpHeaderBuilder(HttpHandle.headerReader(reader, getHeaderHandle(headerInfo)));
-            request = new HttpServletRequest(inputStream, httpHeader, pojo);
+            request = new HttpServletRequest(readerInputStream, httpHeader, pojo);
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             response = new HttpServletResponse(outputStream, headerInfo);
             init(request, response, reader);
-            handle(context, request, (HttpServletResponse) response);
             doFilter(request, response);
-            MessageUtil util = checkBody(headerInfo);
-            if (!request.getMethod().equals("OPTIONS")) {
-                try {
-                    doInvoke(util);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
         } catch (IOException e) {
-
             e.printStackTrace();
         }
     }

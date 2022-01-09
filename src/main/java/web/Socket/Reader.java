@@ -12,8 +12,7 @@ import java.util.Arrays;
  * @Date: created in 4:29 下午 2021/12/4
  * @Modified By:
  */
-public
-class Reader {
+public class Reader {
     private final static String DEFAULT_RETURN = null;
     private final ReaderInputStream inputStream;
     private byte[] EDF = new byte[]{'\r', '\n'};
@@ -57,8 +56,7 @@ class Reader {
             if (state == EDF.length) {
                 break;
             }
-            if (index >= buffer.length)
-                buffer = expansion(buffer);
+            if (index >= buffer.length) buffer = expansion(buffer);
             read = inputStream.read();
             if (read == -1) {
                 break;

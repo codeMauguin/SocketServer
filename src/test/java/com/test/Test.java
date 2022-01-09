@@ -9,6 +9,7 @@ import web.server.WebWorkServer;
  * @Date: 21/06/02 0:18
  */
 public class Test {
+
     public static void main(String[] args) {
         WebServer webServer = new WebWorkServer();
         webServer.run(args);

@@ -1,6 +1,7 @@
 package com.Filter;
 
 import web.http.Filter.Filter;
+import web.http.Filter.FilterChain;
 import web.http.Filter.annotation.Order;
 import web.http.Filter.annotation.WebFilter;
 import web.http.HttpRequest;
@@ -16,7 +17,8 @@ import web.http.HttpResponse;
 @Order(4)
 public class sufFilter implements Filter {
     @Override
-    public void doFilter(HttpRequest request, HttpResponse response) {
-        System.out.println("4   -进入");
+    public void doFilter(HttpRequest request, HttpResponse response, FilterChain filterChain) {
+        System.out.println("4-进入-6");
+        filterChain.doFilter(request, response);
     }
 }

@@ -1,8 +1,11 @@
 package web.server;
 
 import com.whit.Logger.Logger;
-import org.context.Bean.DefaultSingletonBeanRegistry;
+import context.Bean.Context;
+import context.Bean.DefaultSingletonBeanRegistry;
 import org.reflections.Reflections;
+import web.Socket.Handle.BioHttpHandle;
+import web.Socket.HttpBioServer;
 import web.Socket.HttpNioServer;
 import web.Socket.WebHttpServerFactory;
 import web.http.Controller.UtilScan;
@@ -10,6 +13,7 @@ import web.http.Filter.FilterRecord;
 import web.http.Libary.ControllerRecord;
 import web.util.ConfigReader;
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.HashSet;
@@ -75,8 +79,8 @@ public class WebWorkServer implements WebServer {
     private void initBean(WebServerContext context) throws Exception {
         DefaultSingletonBeanRegistry registry = new DefaultSingletonBeanRegistry();
         UtilScan.prepareBean(reflections, registry);
-        registry.refreshBean();
-        registry.initBean(context);
+        Context bean = registry.initBean();
+        context.setBeanPools(bean);
     }
 
 
@@ -101,8 +105,8 @@ public class WebWorkServer implements WebServer {
     }
 
     private void initServer() {
-//        this.webHttpServerFactory = new HttpBioServer();
-        this.webHttpServerFactory = new HttpNioServer();
+        if (context.getServerType().equals(BioHttpHandle.class)) this.webHttpServerFactory = new HttpBioServer();
+        else this.webHttpServerFactory = new HttpNioServer();
     }
 
     private void initController(WebServerContext context) throws Throwable {
@@ -123,8 +127,7 @@ public class WebWorkServer implements WebServer {
             init(args).start(context);
             gc();
         } catch (Throwable e) {
-            e.printStackTrace();
-            Logger.warn(e.getMessage());
+            Logger.error(e.getMessage());
         }
     }
 
@@ -140,7 +143,7 @@ public class WebWorkServer implements WebServer {
     }
 
     @Override
-    @Deprecated
-    public void destroy(WebServerContext k) {
+    public void destroy(WebServerContext k) throws IOException {
+        webHttpServerFactory.destroy(k);
     }
 }
