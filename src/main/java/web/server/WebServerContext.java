@@ -1,8 +1,8 @@
 package web.server;
 
 import context.Bean.Context;
-import web.Socket.Handle.BioHttpHandle;
 import web.Socket.Handle.HttpHandle;
+import web.Socket.Handle.NioHttpHandle;
 import web.http.Filter.FilterRecord;
 import web.http.Libary.ControllerRecord;
 
@@ -21,7 +21,7 @@ public class WebServerContext {
     private final InetAddress ip;
     private final Set<ControllerRecord> controllerRecords = new HashSet<>();
     private final long start;
-    private final Class<? extends HttpHandle> serverType = BioHttpHandle.class;
+    private final Class<? extends HttpHandle> serverType = NioHttpHandle.class;
     private Set<FilterRecord> filterRecords;
     private String[] origins = new String[0];
     private long timeout = 3000;

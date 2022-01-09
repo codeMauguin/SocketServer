@@ -1,4 +1,4 @@
-package web.Socket.InputStream;
+package web.Socket.io.InputStream;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

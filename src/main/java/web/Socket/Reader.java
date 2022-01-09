@@ -1,6 +1,6 @@
 package web.Socket;
 
-import web.Socket.InputStream.ReaderInputStream;
+import web.Socket.io.InputStream.ReaderInputStream;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

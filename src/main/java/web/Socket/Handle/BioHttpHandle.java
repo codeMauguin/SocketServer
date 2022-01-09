@@ -1,9 +1,9 @@
 package web.Socket.Handle;
 
 import com.whit.Logger.Logger;
-import web.Socket.InputStream.BioReaderInputStream;
-import web.Socket.InputStream.ReaderInputStream;
 import web.Socket.Reader;
+import web.Socket.io.InputStream.BioReaderInputStream;
+import web.Socket.io.InputStream.ReaderInputStream;
 import web.http.Header.HttpHeader;
 import web.http.Header.Impl.HttpHeaderBuilder;
 import web.http.Libary.HttpHeaderInfo;
