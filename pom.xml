@@ -11,7 +11,7 @@
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
-        <fast-json>1.2.78</fast-json>
+        <fast-json>1.2.79</fast-json>
         <jetty-util>7.0.0.pre5</jetty-util>
         <reflections>0.10.2</reflections>
         <maven-compiler-plugin>3.8.1</maven-compiler-plugin>
